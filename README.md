@@ -351,18 +351,36 @@ curl -H "X-User-Id: admin-001" \
 {
   manifest: {
     schemaVersion, exportedAt, exportId, dataFormat,
-    incidentId, incidentTitle, filters,
-    counts: { incidents, evidences, auditLogs },
+    incidentId, incidentTitle,
+    exportedBy: { userId, userName, userRole },
+    filters,
+    counts: { incidents, evidences, auditLogs, receiptPackages, receiptRecords },
     files: [...]
   },
   files: {
     'manifest.json': '...',
     'incident.json' | 'incident.csv': '...',
     'evidences.json' | 'evidences.csv': '...',
-    'audit_logs.json' | 'audit_logs.csv': '...'
+    'audit_logs.json' | 'audit_logs.csv': '...',
+    'receipt_packages.json' | 'receipt_packages.csv': '...',
+    'receipt_records.json' | 'receipt_records.csv': '...'
   }
 }
 ```
+
+**manifest 字段说明**：
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `schemaVersion` | string | 归档格式版本，当前为 `1.0` |
+| `exportedAt` | string | 导出时间（ISO 8601） |
+| `exportId` | string | 本次导出的唯一 ID（UUID） |
+| `dataFormat` | string | 内部文件格式：`json` 或 `csv` |
+| `incidentId` | string | 事故 ID |
+| `incidentTitle` | string | 事故标题 |
+| `exportedBy` | object | 导出人信息：`userId`、`userName`、`userRole` |
+| `filters` | object | 导出时使用的筛选条件 |
+| `counts` | object | 各数据类型的记录数：`incidents`、`evidences`、`auditLogs`、`receiptPackages`、`receiptRecords` |
+| `files` | string[] | 归档内包含的文件名列表 |
 
 **方式一：保存到服务端导出目录（默认）**
 
@@ -450,38 +468,32 @@ curl -H "X-User-Id: admin-001" "http://localhost:3000/api/export/saved"
 ```bash
 # 1) dryRun 模式：仅执行完整校验并返回差异预览，不写入任何数据
 curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  "http://localhost:3000/api/import/archive?mode=dryRun&conflictStrategy=newId" \
   -d '{
-    "mode": "dryRun",
-    "conflictStrategy": "newId",
-    "archive": {
-      "manifest": {
-        "schemaVersion": "1.0",
-        "exportedAt": "2026-06-08T05:17:55.457Z",
-        "exportId": "cac86c8e-50b7-46ee-8b2f-ec57fb4776ac",
-        "dataFormat": "json",
-        "incidentId": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31",
-        "incidentTitle": "D区仓库漏水",
-        "counts": { "incidents": 1, "evidences": 2, "auditLogs": 5 },
-        "files": ["incident.json", "evidences.json", "audit_logs.json", "manifest.json"]
-      },
-      "files": {
-        "manifest.json": "{...}",
-        "incident.json": "{...}",
-        "evidences.json": "[...]",
-        "audit_logs.json": "[...]"
-      }
+    "manifest": {
+      "schemaVersion": "1.0",
+      "exportedAt": "2026-06-08T05:17:55.457Z",
+      "exportId": "cac86c8e-50b7-46ee-8b2f-ec57fb4776ac",
+      "dataFormat": "json",
+      "incidentId": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31",
+      "incidentTitle": "D区仓库漏水",
+      "counts": { "incidents": 1, "evidences": 2, "auditLogs": 5, "receiptPackages": 1, "receiptRecords": 1 },
+      "files": ["incident.json", "evidences.json", "audit_logs.json", "manifest.json", "receipt_packages.json", "receipt_records.json"]
+    },
+    "files": {
+      "manifest.json": "{...}",
+      "incident.json": "{...}",
+      "evidences.json": "[...]",
+      "audit_logs.json": "[...]",
+      "receipt_packages.json": "[...]",
+      "receipt_records.json": "[...]"
     }
-  }' \
-  "http://localhost:3000/api/export/incident-archive/import"
+  }'
 
 # 2) commit 模式：真正写入数据（建议先 dryRun 确认差异再执行 commit）
 curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
-  -d '{
-    "mode": "commit",
-    "conflictStrategy": "newId",
-    "archive": { /* 与 dryRun 相同的归档内容 */ }
-  }' \
-  "http://localhost:3000/api/export/incident-archive/import"
+  "http://localhost:3000/api/import/archive?mode=commit&conflictStrategy=newId" \
+  -d '{ /* 与 dryRun 相同的归档内容 */ }'
 ```
 
 #### 方式二：从服务端导出目录读取已保存的归档恢复（推荐）

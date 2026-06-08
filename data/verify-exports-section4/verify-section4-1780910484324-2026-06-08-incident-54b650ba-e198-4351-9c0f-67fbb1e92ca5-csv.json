@@ -1,0 +1,42 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T09:21:24.338Z",
+    "exportId": "bf735adf-0ecb-4dba-9cbb-13a05c97a24b",
+    "dataFormat": "csv",
+    "incidentId": "54b650ba-e198-4351-9c0f-67fbb1e92ca5",
+    "incidentTitle": "reviewer-short-chain",
+    "exportedBy": {
+      "userId": "admin-001",
+      "userName": "孙管理",
+      "userRole": "admin"
+    },
+    "filters": {
+      "incidentId": "54b650ba-e198-4351-9c0f-67fbb1e92ca5",
+      "format": "csv"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 1,
+      "auditLogs": 15,
+      "receiptPackages": 1,
+      "receiptRecords": 2
+    },
+    "files": [
+      "incident.csv",
+      "evidences.csv",
+      "audit_logs.csv",
+      "receipt_packages.csv",
+      "receipt_records.csv",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T09:21:24.338Z\",\n  \"exportId\": \"bf735adf-0ecb-4dba-9cbb-13a05c97a24b\",\n  \"dataFormat\": \"csv\",\n  \"incidentId\": \"54b650ba-e198-4351-9c0f-67fbb1e92ca5\",\n  \"incidentTitle\": \"reviewer-short-chain\",\n  \"exportedBy\": {\n    \"userId\": \"admin-001\",\n    \"userName\": \"孙管理\",\n    \"userRole\": \"admin\"\n  },\n  \"filters\": {\n    \"incidentId\": \"54b650ba-e198-4351-9c0f-67fbb1e92ca5\",\n    \"format\": \"csv\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 1,\n    \"auditLogs\": 15,\n    \"receiptPackages\": 1,\n    \"receiptRecords\": 2\n  },\n  \"files\": [\n    \"incident.csv\",\n    \"evidences.csv\",\n    \"audit_logs.csv\",\n    \"receipt_packages.csv\",\n    \"receipt_records.csv\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.csv": "ID,标题,描述,地点,级别,状态,发生时间,上报人,当前处理人,证据数量,退回原因,创建时间,更新时间\n54b650ba-e198-4351-9c0f-67fbb1e92ca5,reviewer-short-chain,manual,lab,medium,closed,2026-06-08T01:00:00.000Z,张三,赵安保,1,,2026-06-08T07:39:14.483Z,2026-06-08T07:39:14.501Z",
+    "evidences.csv": "证据ID,事故ID,类型,描述,采集时间,采集人,附件路径,文件哈希,创建时间\n42e6d433-b4c6-432d-af54-2377eb5a4ebb,54b650ba-e198-4351-9c0f-67fbb1e92ca5,photo,manual,2026-06-08T01:03:00.000Z,张三,/tmp/reviewer.jpg,sha256:reviewer-short-chain,2026-06-08T07:39:14.493Z",
+    "audit_logs.csv": "序号,日志ID,用户ID,用户名,操作类型,关联事故ID,时间,详情\n798,audit_1780904354484_bal6chyb4,reporter-001,张三,incident_created,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.484Z,\"{\"\"title\"\":\"\"reviewer-short-chain\"\",\"\"location\"\":\"\"lab\"\",\"\"level\"\":\"\"medium\"\"}\"\n799,audit_1780904354488_056u2qxai,reporter-001,张三,incident_status_changed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.488Z,\"{\"\"from\"\":\"\"reported\"\",\"\"to\"\":\"\"evidence_collecting\"\",\"\"reason\"\":null}\"\n800,audit_1780904354494_ap4xl6to0,reporter-001,张三,evidence_added,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.494Z,\"{\"\"evidenceId\"\":\"\"42e6d433-b4c6-432d-af54-2377eb5a4ebb\"\",\"\"type\"\":\"\"photo\"\",\"\"fileHash\"\":\"\"sha256:reviewer-short-chain\"\"}\"\n801,audit_1780904354497_pgea47gv7,foreman-001,王班长,incident_status_changed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.497Z,\"{\"\"from\"\":\"\"evidence_collecting\"\",\"\"to\"\":\"\"foreman_reviewed\"\",\"\"reason\"\":null}\"\n802,audit_1780904354499_352gv1qoz,security-001,赵安保,incident_status_changed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.499Z,\"{\"\"from\"\":\"\"foreman_reviewed\"\",\"\"to\"\":\"\"security_confirmed\"\",\"\"reason\"\":null}\"\n803,audit_1780904354502_mqayc9swi,security-001,赵安保,incident_status_changed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.502Z,\"{\"\"from\"\":\"\"security_confirmed\"\",\"\"to\"\":\"\"closed\"\",\"\"reason\"\":null}\"\n804,audit_1780904354519_es9ehx3si,admin-001,孙管理,receipt_created,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.519Z,\"{\"\"receiptPackageId\"\":\"\"699f8a8d-9152-4800-a77a-f5925f707192\"\",\"\"strategy\"\":\"\"error\"\",\"\"deadline\"\":\"\"2026-06-08T08:39:14.505Z\"\",\"\"receiverName\"\":\"\"Reviewer\"\",\"\"supersededOld\"\":false,\"\"supersededPackageId\"\":null}\"\n805,audit_1780904354530_fh5ihkqzy,anonymous,匿名签收人,receipt_signed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T07:39:14.530Z,\"{\"\"receiptPackageId\"\":\"\"699f8a8d-9152-4800-a77a-f5925f707192\"\",\"\"signerName\"\":\"\"Manual Reviewer\"\",\"\"signedAt\"\":\"\"2026-06-08T07:39:14.528Z\"\"}\"\n808,audit_1780906962898_kri24sej5,foreman-001,王班长,rectification_create_failed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T08:22:42.898Z,\"{\"\"reason\"\":\"\"incident_not_returned_or_reopened\"\",\"\"currentStatus\"\":\"\"closed\"\"}\"\n810,audit_1780907592314_u9jftuzrf,foreman-001,王班长,rectification_create_failed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T08:33:12.314Z,\"{\"\"reason\"\":\"\"incident_not_returned_or_reopened\"\",\"\"currentStatus\"\":\"\"closed\"\"}\"\n820,audit_1780910484250_j3v6o3lga,admin-001,孙管理,data_exported,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T09:21:24.250Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"file\"\",\"\"savedPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\exports\\\\duty-export-2026-06-08-incident-54b650ba-e198-4351-9c0f-67fbb1e92ca5-json.json\"\",\"\"finalName\"\":\"\"duty-export-2026-06-08-incident-54b650ba-e198-4351-9c0f-67fbb1e92ca5-json.json\"\",\"\"renamed\"\":false,\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":1,\"\"auditLogs\"\":10,\"\"receiptPackages\"\":1,\"\"receiptRecords\"\":2}}\"\n821,audit_1780910484270_4gfqrlnig,admin-001,孙管理,data_exported,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T09:21:24.270Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"download\"\",\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":1,\"\"auditLogs\"\":11,\"\"receiptPackages\"\":1,\"\"receiptRecords\"\":2}}\"\n822,audit_1780910484285_qmx7pohse,security-001,赵安保,data_exported,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T09:21:24.285Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"file\"\",\"\"savedPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\exports\\\\duty-export-2026-06-08-incident-54b650ba-e198-4351-9c0f-67fbb1e92ca5-json-1.json\"\",\"\"finalName\"\":\"\"duty-export-2026-06-08-incident-54b650ba-e198-4351-9c0f-67fbb1e92ca5-json-1.json\"\",\"\"renamed\"\":true,\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":1,\"\"auditLogs\"\":12,\"\"receiptPackages\"\":1,\"\"receiptRecords\"\":2}}\"\n824,audit_1780910484303_u22spx9md,admin-001,孙管理,data_exported,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T09:21:24.303Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"file\"\",\"\"savedPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\exports\\\\duty-export-2026-06-08-incident-54b650ba-e198-4351-9c0f-67fbb1e92ca5-json-2.json\"\",\"\"finalName\"\":\"\"duty-export-2026-06-08-incident-54b650ba-e198-4351-9c0f-67fbb1e92ca5-json-2.json\"\",\"\"renamed\"\":true,\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":1,\"\"auditLogs\"\":13,\"\"receiptPackages\"\":1,\"\"receiptRecords\"\":2}}\"\n826,audit_1780910484318_gepqxtfdf,admin-001,孙管理,data_export_failed,54b650ba-e198-4351-9c0f-67fbb1e92ca5,2026-06-08T09:21:24.318Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"reason\"\":\"\"file conflict\"\",\"\"format\"\":\"\"json\"\",\"\"targetPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\exports\\\\duty-export-2026-06-08-incident-54b650ba-e198-4351-9c0f-67fbb1e92ca5-json.json\"\"}\"",
+    "receipt_packages.csv": "签收包ID,事故ID,状态,截止时间,创建人,接收人,签收人,签收时间,撤销人,撤销时间,撤销原因,导出指纹,创建时间\n699f8a8d-9152-4800-a77a-f5925f707192,,signed,2026-06-08T08:39:14.505Z,孙管理,Reviewer,Manual Reviewer,2026-06-08T07:39:14.528Z,,,,19f9d0ddfbb4a319be7ac670e56ea91e14cc051f2208e995e21c189df68839d6,2026-06-08T07:39:14.505Z",
+    "receipt_records.csv": "记录ID,签收包ID,事故ID,操作类型,操作人,时间,详情\nrec_1780904354519_58x3uzyii,699f8a8d-9152-4800-a77a-f5925f707192,54b650ba-e198-4351-9c0f-67fbb1e92ca5,created,孙管理,2026-06-08T07:39:14.519Z,\"{\"\"strategy\"\":\"\"error\"\",\"\"deadlineHours\"\":1,\"\"receiverName\"\":\"\"Reviewer\"\",\"\"supersededOld\"\":false}\"\nrec_1780904354529_fpcq0rf4l,699f8a8d-9152-4800-a77a-f5925f707192,54b650ba-e198-4351-9c0f-67fbb1e92ca5,signed,匿名签收人,2026-06-08T07:39:14.529Z,\"{\"\"signerName\"\":\"\"Manual Reviewer\"\",\"\"signerProvided\"\":true}\""
+  }
+}

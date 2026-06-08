@@ -3,17 +3,19 @@ const router = express.Router();
 const { exportService, importService, configService } = require('../services');
 const { createErrorResponse, ERROR_CODES } = require('../constants/errors');
 const { logAction, AUDIT_ACTION } = require('../services/auditService');
+const { PERMISSIONS } = require('../constants/status');
 
 function requireExportPermission(req, res, next) {
   if (!req.user) {
     return res.status(401).json(createErrorResponse(ERROR_CODES.UNAUTHORIZED));
   }
-  const allowedRoles = ['admin', 'security'];
-  if (!allowedRoles.includes(req.user.role)) {
+  const allowedRoles = PERMISSIONS.EXPORT_DATA;
+  if (!allowedRoles || !allowedRoles.includes(req.user.role)) {
     logAction(req.user.id, req.user.name, AUDIT_ACTION.DATA_EXPORT_FAILED, null, {
       type: 'permission_denied',
       reason: 'role not allowed',
       userRole: req.user.role,
+      requiredPermission: 'EXPORT_DATA',
       path: req.path,
       method: req.method
     });
@@ -30,12 +32,13 @@ function requireImportPermission(req, res, next) {
   if (!req.user) {
     return res.status(401).json(createErrorResponse(ERROR_CODES.UNAUTHORIZED));
   }
-  const allowedRoles = ['admin', 'security'];
-  if (!allowedRoles.includes(req.user.role)) {
+  const allowedRoles = PERMISSIONS.IMPORT_DATA;
+  if (!allowedRoles || !allowedRoles.includes(req.user.role)) {
     logAction(req.user.id, req.user.name, AUDIT_ACTION.DATA_IMPORT_FAILED, null, {
       type: 'permission_denied',
       reason: 'role not allowed',
       userRole: req.user.role,
+      requiredPermission: 'IMPORT_DATA',
       path: req.path,
       method: req.method
     });

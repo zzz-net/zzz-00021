@@ -159,7 +159,7 @@ function exportAuditLogs(user, filters = {}, format = 'json') {
   return { format: 'json', content: JSON.stringify(logs, null, 2), filename: 'audit_logs.json' };
 }
 
-function buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters, exportedAt) {
+function buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters, exportedAt, user) {
   return {
     schemaVersion: '1.0',
     exportedAt,
@@ -167,6 +167,11 @@ function buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPac
     dataFormat: format,
     incidentId: incident.id,
     incidentTitle: incident.title,
+    exportedBy: {
+      userId: user ? user.id : null,
+      userName: user ? user.name : null,
+      userRole: user ? user.role : null
+    },
     filters: filters || {},
     counts: {
       incidents: 1,
@@ -186,9 +191,9 @@ function buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPac
   };
 }
 
-function buildIncidentArchiveContent(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters) {
+function buildIncidentArchiveContent(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters, user) {
   const exportedAt = new Date().toISOString();
-  const manifest = buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters, exportedAt);
+  const manifest = buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters, exportedAt, user);
 
   if (format === 'csv') {
     const incidentColumns = [
@@ -306,7 +311,7 @@ function exportIncidentArchive(user, incidentId, format = 'json', options = {}) 
   const receiptRecords = getReceiptRecordsByIncident(incidentId);
 
   const filters = { incidentId, format: formatValid };
-  const { manifest, files } = buildIncidentArchiveContent(incident, evidences, auditLogs, receiptPackages, receiptRecords, formatValid, filters);
+  const { manifest, files } = buildIncidentArchiveContent(incident, evidences, auditLogs, receiptPackages, receiptRecords, formatValid, filters, user);
 
   if (options.downloadOnly) {
     logAction(user.id, user.name, AUDIT_ACTION.DATA_EXPORTED, incidentId, {

@@ -1,0 +1,42 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T09:21:37.365Z",
+    "exportId": "353f4d3b-d3e6-4624-95cf-3b3bf532da52",
+    "dataFormat": "json",
+    "incidentId": "bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5",
+    "incidentTitle": "完整跨重启导入测试事故-1780910497338",
+    "exportedBy": {
+      "userId": "admin-001",
+      "userName": "孙管理",
+      "userRole": "admin"
+    },
+    "filters": {
+      "incidentId": "bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 1,
+      "auditLogs": 3,
+      "receiptPackages": 0,
+      "receiptRecords": 0
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "receipt_packages.json",
+      "receipt_records.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T09:21:37.365Z\",\n  \"exportId\": \"353f4d3b-d3e6-4624-95cf-3b3bf532da52\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5\",\n  \"incidentTitle\": \"完整跨重启导入测试事故-1780910497338\",\n  \"exportedBy\": {\n    \"userId\": \"admin-001\",\n    \"userName\": \"孙管理\",\n    \"userRole\": \"admin\"\n  },\n  \"filters\": {\n    \"incidentId\": \"bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 1,\n    \"auditLogs\": 3,\n    \"receiptPackages\": 0,\n    \"receiptRecords\": 0\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"receipt_packages.json\",\n    \"receipt_records.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5\",\n  \"title\": \"完整跨重启导入测试事故-1780910497338\",\n  \"description\": \"测试服务重启后从配置目录读取并导入\",\n  \"location\": \"完整重启测试区\",\n  \"level\": \"low\",\n  \"occurredAt\": \"2026-06-08T09:21:37.338Z\",\n  \"status\": \"evidence_collecting\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 1,\n  \"createdAt\": \"2026-06-08T09:21:37.341Z\",\n  \"updatedAt\": \"2026-06-08T09:21:37.350Z\"\n}",
+    "evidences.json": "[\n  {\n    \"id\": \"1663bb92-89d8-4578-bee7-0fe38dbdf412\",\n    \"incidentId\": \"bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5\",\n    \"sequence\": 1,\n    \"type\": \"document\",\n    \"description\": \"完整重启测试证据\",\n    \"collectedAt\": \"2026-06-08T09:21:37.347Z\",\n    \"collectorId\": \"reporter-001\",\n    \"collectorName\": \"张三\",\n    \"filePath\": null,\n    \"fileHash\": \"sha256:full-restart-test-1780910497347\",\n    \"createdAt\": \"2026-06-08T09:21:37.350Z\"\n  }\n]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780910497341_dueu7w5ew\",\n    \"sequence\": 881,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"完整跨重启导入测试事故-1780910497338\",\n      \"location\": \"完整重启测试区\",\n      \"level\": \"low\"\n    },\n    \"timestamp\": \"2026-06-08T09:21:37.341Z\"\n  },\n  {\n    \"id\": \"audit_1780910497345_605d6cw5i\",\n    \"sequence\": 882,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_status_changed\",\n    \"incidentId\": \"bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5\",\n    \"previousStatus\": \"reported\",\n    \"currentStatus\": \"evidence_collecting\",\n    \"details\": {\n      \"from\": \"reported\",\n      \"to\": \"evidence_collecting\",\n      \"reason\": null\n    },\n    \"timestamp\": \"2026-06-08T09:21:37.345Z\"\n  },\n  {\n    \"id\": \"audit_1780910497351_rgudxhy29\",\n    \"sequence\": 883,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"evidence_added\",\n    \"incidentId\": \"bec54cd0-24d5-45e8-aaf5-e4b7af8f3ee5\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"evidenceId\": \"1663bb92-89d8-4578-bee7-0fe38dbdf412\",\n      \"type\": \"document\",\n      \"fileHash\": \"sha256:full-restart-test-1780910497347\"\n    },\n    \"timestamp\": \"2026-06-08T09:21:37.351Z\"\n  }\n]",
+    "receipt_packages.json": "[]",
+    "receipt_records.json": "[]"
+  }
+}
