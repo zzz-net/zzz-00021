@@ -160,12 +160,18 @@ curl -X POST http://localhost:3000/api/incidents \
 
 ---
 
-### 5. 事故列表查询
+### 5. 事故列表查询（值班台待办视图）
 
-支持按地点、级别、状态筛选：
+支持多维度筛选、排序和超时过滤。默认按创建时间降序排列。
+
+**权限控制**：
+- `admin` / `security` 角色：可查看全量事故
+- `reporter` / `foreman` 角色：仅能查看自己上报或当前分配给自己处理的事故（后端强制过滤，不依赖前端）
+
+每条事故返回附带 `overdue: true/false` 字段标识是否超时。
 
 ```bash
-# 全部事故
+# 全部事故（受权限过滤）
 curl -H "X-User-Id: reporter-001" http://localhost:3000/api/incidents
 
 # 按地点筛选
@@ -177,9 +183,90 @@ curl -H "X-User-Id: reporter-001" "http://localhost:3000/api/incidents?level=hig
 # 按状态筛选
 curl -H "X-User-Id: reporter-001" "http://localhost:3000/api/incidents?status=evidence_collecting"
 
+# 按处理人筛选
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?assignedTo=reporter-001"
+
+# 按创建时间范围筛选
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?createdFrom=2026-06-01T00:00:00.000Z&createdTo=2026-06-08T23:59:59.999Z"
+
+# 只看超时事故
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?overdueOnly=true"
+
+# 排序：按创建时间升序
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?sort=createdAt:asc"
+
+# 排序：按更新时间降序（默认方向）
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?sort=updatedAt:desc"
+
+# 排序：按等级升序（low → critical）
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?sort=level:asc"
+
+# 排序：按等级降序（critical → low）
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?sort=level:desc"
+
 # 组合筛选
-curl -H "X-User-Id: reporter-001" "http://localhost:3000/api/incidents?location=B区&level=medium&status=reported"
+curl -H "X-User-Id: security-001" "http://localhost:3000/api/incidents?location=B区&level=high&overdueOnly=true&sort=level:desc"
 ```
+
+**请求参数说明**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `location` | string | 按地点模糊匹配 |
+| `level` | string | 按级别精确匹配：`low` / `medium` / `high` / `critical` |
+| `status` | string | 按状态精确匹配 |
+| `assignedTo` | string | 按当前处理人 ID 精确匹配 |
+| `createdFrom` | string | 创建时间起始（ISO 8601），包含边界 |
+| `createdTo` | string | 创建时间截止（ISO 8601），包含边界 |
+| `overdueOnly` | boolean | `true` 时仅返回超时事故 |
+| `sort` | string | 排序格式：`<字段>:<方向>`。字段：`createdAt` / `updatedAt` / `level`；方向：`asc` / `desc`（默认 `desc`） |
+
+**非法 sort 值校验错误响应示例（400）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "请求参数验证失败",
+    "details": "sort 字段无效: invalidField。有效值: createdAt, updatedAt, level"
+  }
+}
+```
+
+---
+
+### 5.1 超时配置管理
+
+超时规则按事故等级分别配置（单位：小时），持久化存储在 SQLite，服务重启后仍然生效。修改配置会写入审计日志。
+
+```bash
+# 查看当前超时配置（所有已认证用户均可查看）
+curl -H "X-User-Id: reporter-001" http://localhost:3000/api/incidents/config/overdue
+
+# 修改超时配置（仅 admin 角色）
+curl -X PUT -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  -d '{
+    "low": 72,
+    "medium": 48,
+    "high": 24,
+    "critical": 12
+  }' \
+  http://localhost:3000/api/incidents/config/overdue
+```
+
+**默认超时配置**：
+| 等级 | 默认小时数 |
+|------|-----------|
+| `low` | 72 |
+| `medium` | 48 |
+| `high` | 24 |
+| `critical` | 12 |
+
+超时判定逻辑：已结案事故不视为超时；未结案事故从 `createdAt` 起算，超过对应等级配置的小时数即为超时。
+
+**权限要求**：修改配置需要 `MANAGE_OVERDUE_CONFIG` 权限，仅 `admin` 角色拥有。
+
+**审计日志**：配置变更会写入 `overdue_config_updated` 审计日志，记录变更前值、变更后值和具体变更字段。
 
 ---
 
@@ -447,6 +534,34 @@ curl -H "X-User-Id: admin-001" "http://localhost:3000/api/export/saved"
 ```
 
 > 权限要求：`admin` 或 `security` 角色。普通上报人（reporter）和班长（foreman）无法访问导出接口，且会写入失败审计日志。
+
+#### 导出权限控制与审计日志
+
+所有导出相关接口（包括单独导出事故、证据、审计日志、事故归档包、导出配置管理、已保存列表）统一使用 `EXPORT_DATA` 权限进行控制，角色允许列表通过系统常量 `PERMISSIONS.EXPORT_DATA` 定义，确保权限判定与系统其他模块一致。
+
+**权限矩阵**：
+| 角色 | EXPORT_DATA 权限 | 说明 |
+|------|------------------|------|
+| `admin` | ✅ 允许 | 管理员 |
+| `security` | ✅ 允许 | 安保人员 |
+| `foreman` | ❌ 拒绝 | 班长，无导出权限 |
+| `reporter` | ❌ 拒绝 | 普通上报人，无导出权限 |
+
+**审计日志覆盖**：
+| 场景 | 审计动作 | 说明 |
+|------|----------|------|
+| 导出成功 | `data_exported` | 记录导出类型、格式、数量、保存路径等 |
+| 导出失败 | `data_export_failed` | 记录失败原因（权限不足、文件冲突、写入错误、事故不存在等） |
+| 导出配置变更 | `export_config_updated` | 记录配置变更的字段和新值 |
+
+无权限访问时，系统会：
+1. 返回 HTTP 403 `PERMISSION_DENIED`，响应中包含 `required: 'EXPORT_DATA'`、当前用户角色 `userRole`、允许的角色列表 `allowedRoles`
+2. 写入 `data_export_failed` 审计日志，附带 `type: 'permission_denied'`、请求路径、请求方法、用户角色等详情，便于事后审计追踪
+
+**同名文件冲突处理**：
+导出时通过 `conflictStrategy` 配置控制行为（存储于 SQLite，服务重启后保留）：
+- `suffix`（默认）：自动生成安全后缀（`-1`、`-2`…），绝不会静默覆盖已有文件，响应中 `renamed: true` 标识发生了自动重命名
+- `error`：返回 HTTP 409 `EXPORT_CONFLICT`，响应中 `details.existingPath` 指向冲突文件的绝对路径，`details.strategy` 为当前策略
 
 ---
 

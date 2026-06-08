@@ -29,7 +29,7 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/constants', (req, res) => {
-  const { INCIDENT_STATUS, INCIDENT_LEVEL, USER_ROLE, RECEIPT_PACKAGE_STATUS, RECEIPT_CONFLICT_STRATEGY } = require('../constants/status');
+  const { INCIDENT_STATUS, INCIDENT_LEVEL, USER_ROLE, RECEIPT_PACKAGE_STATUS, RECEIPT_CONFLICT_STRATEGY, SORT_FIELDS, SORT_DIRECTIONS } = require('../constants/status');
   res.json({
     success: true,
     data: {
@@ -37,7 +37,9 @@ router.get('/constants', (req, res) => {
       incidentLevel: INCIDENT_LEVEL,
       userRole: USER_ROLE,
       receiptPackageStatus: RECEIPT_PACKAGE_STATUS,
-      receiptConflictStrategy: RECEIPT_CONFLICT_STRATEGY
+      receiptConflictStrategy: RECEIPT_CONFLICT_STRATEGY,
+      sortFields: SORT_FIELDS,
+      sortDirections: SORT_DIRECTIONS
     }
   });
 });

@@ -1,5 +1,5 @@
 const { getDb, DATA_DIR } = require('../storage/sqliteStore');
-const { logAction, AUDIT_ACTION } = require('./auditService');
+const { AUDIT_ACTION, INCIDENT_LEVEL } = require('../constants/status');
 const path = require('path');
 const fs = require('fs');
 
@@ -7,6 +7,13 @@ const DEFAULT_CONFIG = {
   exportDir: path.join(DATA_DIR, 'exports'),
   filenamePrefix: 'duty-export',
   conflictStrategy: 'suffix'
+};
+
+const DEFAULT_OVERDUE_CONFIG = {
+  [INCIDENT_LEVEL.LOW]: 72,
+  [INCIDENT_LEVEL.MEDIUM]: 48,
+  [INCIDENT_LEVEL.HIGH]: 24,
+  [INCIDENT_LEVEL.CRITICAL]: 12
 };
 
 function getDbConfig(key) {
@@ -83,15 +90,64 @@ function updateExportConfig(user, updates = {}) {
   }
 
   if (Object.keys(changes).length > 0) {
+    const { logAction } = require('./auditService');
     logAction(user.id, user.name, AUDIT_ACTION.EXPORT_CONFIG_UPDATED, null, changes);
   }
 
   return getExportConfig();
 }
 
+function getOverdueConfig() {
+  const dbValue = getDbConfig('overdue_config');
+  if (dbValue) {
+    try {
+      const parsed = JSON.parse(dbValue);
+      return { ...DEFAULT_OVERDUE_CONFIG, ...parsed };
+    } catch (e) {
+      console.error('Failed to parse overdue_config from DB:', e);
+    }
+  }
+  return { ...DEFAULT_OVERDUE_CONFIG };
+}
+
+function updateOverdueConfig(user, updates = {}) {
+  const validLevels = Object.values(INCIDENT_LEVEL);
+  const changes = {};
+  const currentConfig = getOverdueConfig();
+
+  for (const level of validLevels) {
+    if (updates[level] !== undefined && updates[level] !== null) {
+      const hours = Number(updates[level]);
+      if (isNaN(hours) || hours < 0 || !isFinite(hours)) {
+        throw new Error(`${level} 的超时小时数必须是非负数字`);
+      }
+      changes[level] = hours;
+    }
+  }
+
+  if (Object.keys(changes).length === 0) {
+    return currentConfig;
+  }
+
+  const newConfig = { ...currentConfig, ...changes };
+  setDbConfig('overdue_config', JSON.stringify(newConfig));
+
+  const { logAction } = require('./auditService');
+  logAction(user.id, user.name, AUDIT_ACTION.OVERDUE_CONFIG_UPDATED, null, {
+    before: currentConfig,
+    after: newConfig,
+    changes
+  });
+
+  return newConfig;
+}
+
 module.exports = {
   getExportConfig,
   updateExportConfig,
   getAllDbConfig,
-  DEFAULT_CONFIG
+  DEFAULT_CONFIG,
+  getOverdueConfig,
+  updateOverdueConfig,
+  DEFAULT_OVERDUE_CONFIG
 };

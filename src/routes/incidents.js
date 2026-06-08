@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { incidentService, auditService } = require('../services');
+const { incidentService, auditService, configService } = require('../services');
 const { createErrorResponse, ERROR_CODES } = require('../constants/errors');
 const { INCIDENT_LEVEL } = require('../constants/status');
 const { requirePermission } = require('../middleware/auth');
@@ -35,13 +35,42 @@ router.post('/', requirePermission('CREATE_INCIDENT'), (req, res) => {
 });
 
 router.get('/', (req, res) => {
-  const { location, level, status } = req.query;
-  const incidents = incidentService.getIncidentList({ location, level, status });
+  try {
+    const { location, level, status, assignedTo, createdFrom, createdTo, overdueOnly, sort } = req.query;
+    const incidents = incidentService.getIncidentList(req.user, { 
+      location, level, status, assignedTo, createdFrom, createdTo, overdueOnly, sort 
+    });
 
+    res.json({
+      success: true,
+      data: incidents
+    });
+  } catch (err) {
+    if (err.code === ERROR_CODES.VALIDATION_ERROR) {
+      return res.status(400).json(createErrorResponse(ERROR_CODES.VALIDATION_ERROR, err.details || err.message));
+    }
+    throw err;
+  }
+});
+
+router.get('/config/overdue', (req, res) => {
+  const config = configService.getOverdueConfig();
   res.json({
     success: true,
-    data: incidents
+    data: config
   });
+});
+
+router.put('/config/overdue', requirePermission('MANAGE_OVERDUE_CONFIG'), (req, res) => {
+  try {
+    const config = configService.updateOverdueConfig(req.user, req.body || {});
+    res.json({
+      success: true,
+      data: config
+    });
+  } catch (err) {
+    return res.status(400).json(createErrorResponse(ERROR_CODES.VALIDATION_ERROR, err.message));
+  }
 });
 
 router.get('/:id', (req, res) => {

@@ -1,8 +1,18 @@
 const { v4: uuidv4 } = require('uuid');
 const { incidentsStore, evidencesStore } = require('../storage');
-const { INCIDENT_STATUS, INCIDENT_STATUS_FLOW } = require('../constants/status');
+const { 
+  INCIDENT_STATUS, 
+  INCIDENT_STATUS_FLOW, 
+  INCIDENT_LEVEL, 
+  USER_ROLE, 
+  PERMISSIONS,
+  SORT_FIELDS,
+  SORT_DIRECTIONS,
+  LEVEL_ORDER
+} = require('../constants/status');
 const { ERROR_CODES } = require('../constants/errors');
 const { logAction, AUDIT_ACTION } = require('./auditService');
+const { getOverdueConfig } = require('./configService');
 
 function createIncident(user, data) {
   const now = new Date().toISOString();
@@ -34,9 +44,107 @@ function createIncident(user, data) {
   return incident;
 }
 
-function getIncidentList(filters = {}) {
-  let incidents = incidentsStore.readAll();
+function isIncidentOverdue(incident) {
+  if (incident.status === INCIDENT_STATUS.CLOSED) {
+    return false;
+  }
+  const overdueConfig = getOverdueConfig();
+  const limitHours = overdueConfig[incident.level] || 0;
+  if (limitHours <= 0) return false;
+  const createdAt = new Date(incident.createdAt).getTime();
+  const now = Date.now();
+  const diffHours = (now - createdAt) / (1000 * 60 * 60);
+  return diffHours > limitHours;
+}
 
+function parseSortParam(sort) {
+  if (!sort) return null;
+  const [field, direction] = sort.split(':');
+  const validFields = Object.values(SORT_FIELDS);
+  const validDirections = Object.values(SORT_DIRECTIONS);
+  
+  if (!validFields.includes(field)) {
+    const error = new Error(`sort 字段无效: ${field}。有效值: ${validFields.join(', ')}`);
+    error.code = ERROR_CODES.VALIDATION_ERROR;
+    error.field = 'sort';
+    throw error;
+  }
+  
+  const dir = direction || SORT_DIRECTIONS.DESC;
+  if (!validDirections.includes(dir)) {
+    const error = new Error(`sort 方向无效: ${dir}。有效值: ${validDirections.join(', ')}`);
+    error.code = ERROR_CODES.VALIDATION_ERROR;
+    error.field = 'sort';
+    throw error;
+  }
+  
+  return { field, direction: dir };
+}
+
+function validateFilters(filters) {
+  const errors = [];
+  
+  if (filters.createdFrom && isNaN(new Date(filters.createdFrom).getTime())) {
+    errors.push('createdFrom 必须是有效的 ISO 8601 日期字符串');
+  }
+  if (filters.createdTo && isNaN(new Date(filters.createdTo).getTime())) {
+    errors.push('createdTo 必须是有效的 ISO 8601 日期字符串');
+  }
+  if (filters.level && !Object.values(INCIDENT_LEVEL).includes(filters.level)) {
+    errors.push(`level 无效: ${filters.level}。有效值: ${Object.values(INCIDENT_LEVEL).join(', ')}`);
+  }
+  
+  if (errors.length > 0) {
+    const error = new Error(errors.join('; '));
+    error.code = ERROR_CODES.VALIDATION_ERROR;
+    error.details = errors;
+    throw error;
+  }
+}
+
+function applyPermissionFilter(user, incidents) {
+  const canViewAll = PERMISSIONS.VIEW_ALL_INCIDENTS.includes(user.role);
+  if (canViewAll) {
+    return incidents;
+  }
+  return incidents.filter(inc => 
+    inc.reporterId === user.id || inc.currentHandlerId === user.id
+  );
+}
+
+function sortIncidents(incidents, sortConfig) {
+  if (!sortConfig) {
+    return incidents.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+  
+  const { field, direction } = sortConfig;
+  const multiplier = direction === SORT_DIRECTIONS.ASC ? 1 : -1;
+  
+  return incidents.sort((a, b) => {
+    let valA, valB;
+    
+    if (field === SORT_FIELDS.LEVEL) {
+      valA = LEVEL_ORDER[a.level] || 0;
+      valB = LEVEL_ORDER[b.level] || 0;
+    } else {
+      valA = new Date(a[field] || 0).getTime();
+      valB = new Date(b[field] || 0).getTime();
+    }
+    
+    if (valA === valB) {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    }
+    return (valA - valB) * multiplier;
+  });
+}
+
+function getIncidentList(user, filters = {}) {
+  validateFilters(filters);
+  
+  let incidents = incidentsStore.readAll();
+  
+  incidents = applyPermissionFilter(user, incidents);
+  
   if (filters.location) {
     incidents = incidents.filter(inc => 
       inc.location && inc.location.includes(filters.location)
@@ -48,8 +156,28 @@ function getIncidentList(filters = {}) {
   if (filters.status) {
     incidents = incidents.filter(inc => inc.status === filters.status);
   }
-
-  return incidents.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (filters.assignedTo) {
+    incidents = incidents.filter(inc => inc.currentHandlerId === filters.assignedTo);
+  }
+  if (filters.createdFrom) {
+    const from = new Date(filters.createdFrom).getTime();
+    incidents = incidents.filter(inc => new Date(inc.createdAt).getTime() >= from);
+  }
+  if (filters.createdTo) {
+    const to = new Date(filters.createdTo).getTime();
+    incidents = incidents.filter(inc => new Date(inc.createdAt).getTime() <= to);
+  }
+  if (filters.overdueOnly === 'true' || filters.overdueOnly === true) {
+    incidents = incidents.filter(inc => isIncidentOverdue(inc));
+  }
+  
+  const sortConfig = parseSortParam(filters.sort);
+  incidents = sortIncidents(incidents, sortConfig);
+  
+  return incidents.map(inc => ({
+    ...inc,
+    overdue: isIncidentOverdue(inc)
+  }));
 }
 
 function getIncidentDetail(id) {
@@ -63,7 +191,8 @@ function getIncidentDetail(id) {
 
   return {
     ...incident,
-    evidences: sortedEvidences
+    evidences: sortedEvidences,
+    overdue: isIncidentOverdue(incident)
   };
 }
 
@@ -158,5 +287,6 @@ module.exports = {
   returnIncident,
   startEvidenceCollection,
   reopenIncident,
-  canTransitionStatus
+  canTransitionStatus,
+  isIncidentOverdue
 };
