@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T05:33:30.458Z",
+    "exportId": "d9a9c712-f3ba-4147-bb0c-0c45ef372df1",
+    "dataFormat": "json",
+    "incidentId": "6900e5be-f5ea-413d-ad7c-6a198f991c78",
+    "incidentTitle": "跨重启导入测试事故-1780896810451",
+    "filters": {
+      "incidentId": "6900e5be-f5ea-413d-ad7c-6a198f991c78",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 0,
+      "auditLogs": 1
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T05:33:30.458Z\",\n  \"exportId\": \"d9a9c712-f3ba-4147-bb0c-0c45ef372df1\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"6900e5be-f5ea-413d-ad7c-6a198f991c78\",\n  \"incidentTitle\": \"跨重启导入测试事故-1780896810451\",\n  \"filters\": {\n    \"incidentId\": \"6900e5be-f5ea-413d-ad7c-6a198f991c78\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 0,\n    \"auditLogs\": 1\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"6900e5be-f5ea-413d-ad7c-6a198f991c78\",\n  \"title\": \"跨重启导入测试事故-1780896810451\",\n  \"description\": \"测试服务重启后从配置目录读取并导入\",\n  \"location\": \"重启测试区\",\n  \"level\": \"low\",\n  \"occurredAt\": \"2026-06-08T05:33:30.451Z\",\n  \"status\": \"reported\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 0,\n  \"createdAt\": \"2026-06-08T05:33:30.454Z\",\n  \"updatedAt\": \"2026-06-08T05:33:30.454Z\"\n}",
+    "evidences.json": "[]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780896810454_uu6p4vf4d\",\n    \"sequence\": 327,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"6900e5be-f5ea-413d-ad7c-6a198f991c78\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"跨重启导入测试事故-1780896810451\",\n      \"location\": \"重启测试区\",\n      \"level\": \"low\"\n    },\n    \"timestamp\": \"2026-06-08T05:33:30.454Z\"\n  }\n]"
+  }
+}

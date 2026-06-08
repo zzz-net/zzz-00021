@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T05:34:17.787Z",
+    "exportId": "19f284e2-a778-4dc5-a28c-889c35b269ff",
+    "dataFormat": "json",
+    "incidentId": "f7a3f3fa-15ec-4622-bad5-c493cce98048",
+    "incidentTitle": "reviewer-owned-import-path-test-1780896857718",
+    "filters": {
+      "incidentId": "f7a3f3fa-15ec-4622-bad5-c493cce98048",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 1,
+      "auditLogs": 3
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T05:34:17.787Z\",\n  \"exportId\": \"19f284e2-a778-4dc5-a28c-889c35b269ff\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"f7a3f3fa-15ec-4622-bad5-c493cce98048\",\n  \"incidentTitle\": \"reviewer-owned-import-path-test-1780896857718\",\n  \"filters\": {\n    \"incidentId\": \"f7a3f3fa-15ec-4622-bad5-c493cce98048\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 1,\n    \"auditLogs\": 3\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"f7a3f3fa-15ec-4622-bad5-c493cce98048\",\n  \"title\": \"reviewer-owned-import-path-test-1780896857718\",\n  \"description\": \"manual review case\",\n  \"location\": \"review-lab\",\n  \"level\": \"medium\",\n  \"occurredAt\": \"2026-06-08T05:34:17.7252211Z\",\n  \"status\": \"evidence_collecting\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 1,\n  \"createdAt\": \"2026-06-08T05:34:17.753Z\",\n  \"updatedAt\": \"2026-06-08T05:34:17.777Z\"\n}",
+    "evidences.json": "[\n  {\n    \"id\": \"42536799-fa14-450e-b8d4-3f472a2f7209\",\n    \"incidentId\": \"f7a3f3fa-15ec-4622-bad5-c493cce98048\",\n    \"sequence\": 1,\n    \"type\": \"photo\",\n    \"description\": \"manual-review-evidence\",\n    \"collectedAt\": \"2026-06-08T05:35:17.7662181Z\",\n    \"collectorId\": \"reporter-001\",\n    \"collectorName\": \"张三\",\n    \"filePath\": null,\n    \"fileHash\": \"sha256:manual-review-419a3cb17e274a418db05ddcdd5e8464\",\n    \"createdAt\": \"2026-06-08T05:34:17.777Z\"\n  }\n]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780896857754_s5sq0k9g4\",\n    \"sequence\": 333,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"f7a3f3fa-15ec-4622-bad5-c493cce98048\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"reviewer-owned-import-path-test-1780896857718\",\n      \"location\": \"review-lab\",\n      \"level\": \"medium\"\n    },\n    \"timestamp\": \"2026-06-08T05:34:17.754Z\"\n  },\n  {\n    \"id\": \"audit_1780896857764_cjhs3tkag\",\n    \"sequence\": 334,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_status_changed\",\n    \"incidentId\": \"f7a3f3fa-15ec-4622-bad5-c493cce98048\",\n    \"previousStatus\": \"reported\",\n    \"currentStatus\": \"evidence_collecting\",\n    \"details\": {\n      \"from\": \"reported\",\n      \"to\": \"evidence_collecting\",\n      \"reason\": null\n    },\n    \"timestamp\": \"2026-06-08T05:34:17.764Z\"\n  },\n  {\n    \"id\": \"audit_1780896857778_u5hxcwukb\",\n    \"sequence\": 335,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"evidence_added\",\n    \"incidentId\": \"f7a3f3fa-15ec-4622-bad5-c493cce98048\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"evidenceId\": \"42536799-fa14-450e-b8d4-3f472a2f7209\",\n      \"type\": \"photo\",\n      \"fileHash\": \"sha256:manual-review-419a3cb17e274a418db05ddcdd5e8464\"\n    },\n    \"timestamp\": \"2026-06-08T05:34:17.778Z\"\n  }\n]"
+  }
+}

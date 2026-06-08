@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { exportService, configService } = require('../services');
+const { exportService, importService, configService } = require('../services');
 const { createErrorResponse, ERROR_CODES } = require('../constants/errors');
 const { logAction, AUDIT_ACTION } = require('../services/auditService');
 
@@ -19,6 +19,28 @@ function requireExportPermission(req, res, next) {
     });
     return res.status(403).json(createErrorResponse(ERROR_CODES.PERMISSION_DENIED, {
       required: 'EXPORT_DATA',
+      userRole: req.user.role,
+      allowedRoles
+    }));
+  }
+  next();
+}
+
+function requireImportPermission(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json(createErrorResponse(ERROR_CODES.UNAUTHORIZED));
+  }
+  const allowedRoles = ['admin', 'security'];
+  if (!allowedRoles.includes(req.user.role)) {
+    logAction(req.user.id, req.user.name, AUDIT_ACTION.DATA_IMPORT_FAILED, null, {
+      type: 'permission_denied',
+      reason: 'role not allowed',
+      userRole: req.user.role,
+      path: req.path,
+      method: req.method
+    });
+    return res.status(403).json(createErrorResponse(ERROR_CODES.PERMISSION_DENIED, {
+      required: 'IMPORT_DATA',
       userRole: req.user.role,
       allowedRoles
     }));
@@ -63,6 +85,86 @@ router.get('/audit-logs', requireExportPermission, (req, res) => {
 
   const result = exportService.exportAuditLogs(req.user, filters, format);
   sendExportResponse(res, result);
+});
+
+router.post('/incident-archive/import', requireImportPermission, (req, res) => {
+  const body = req.body || {};
+  const mode = body.mode === 'commit' ? 'commit' : 'dryRun';
+  const conflictStrategy = ['skip', 'newId'].includes(body.conflictStrategy)
+    ? body.conflictStrategy
+    : 'skip';
+
+  const archive = body.archive;
+  if (!archive || typeof archive !== 'object') {
+    logAction(req.user.id, req.user.name, AUDIT_ACTION.DATA_IMPORT_VALIDATION_FAILED, null, {
+      reason: 'missing_archive_payload',
+      mode,
+      conflictStrategy
+    });
+    return res.status(400).json(createErrorResponse(ERROR_CODES.IMPORT_VALIDATION_ERROR, {
+      reason: '缺少 archive 字段或不是有效对象',
+      hint: 'POST body 应包含 { archive, mode?, conflictStrategy? }'
+    }));
+  }
+
+  const result = importService.importIncidentArchive(req.user, archive, { mode, conflictStrategy });
+
+  if (!result.success) {
+    const statusMap = {
+      [ERROR_CODES.IMPORT_VALIDATION_ERROR]: 400,
+      [ERROR_CODES.IMPORT_CONFLICT]: 409,
+      [ERROR_CODES.IMPORT_FAILED]: 500,
+      [ERROR_CODES.NOT_FOUND]: 404
+    };
+    return res.status(statusMap[result.error] || 500).json(
+      createErrorResponse(result.error, result.details)
+    );
+  }
+
+  res.json({
+    success: true,
+    data: result.data
+  });
+});
+
+router.post('/incident-archive/import-from-file', requireImportPermission, (req, res) => {
+  const body = req.body || {};
+  const mode = body.mode === 'commit' ? 'commit' : 'dryRun';
+  const conflictStrategy = ['skip', 'newId'].includes(body.conflictStrategy)
+    ? body.conflictStrategy
+    : 'skip';
+
+  const filename = body.filename;
+  if (!filename || typeof filename !== 'string' || filename.trim().length === 0) {
+    logAction(req.user.id, req.user.name, AUDIT_ACTION.DATA_IMPORT_VALIDATION_FAILED, null, {
+      reason: 'missing_filename',
+      mode,
+      conflictStrategy
+    });
+    return res.status(400).json(createErrorResponse(ERROR_CODES.IMPORT_VALIDATION_ERROR, {
+      reason: '缺少 filename 字段',
+      hint: 'POST body 应包含 { filename, mode?, conflictStrategy? }，filename 为导出目录下的文件名或绝对路径'
+    }));
+  }
+
+  const result = importService.importIncidentArchiveFromFile(req.user, filename.trim(), { mode, conflictStrategy });
+
+  if (!result.success) {
+    const statusMap = {
+      [ERROR_CODES.IMPORT_VALIDATION_ERROR]: 400,
+      [ERROR_CODES.IMPORT_CONFLICT]: 409,
+      [ERROR_CODES.IMPORT_FAILED]: 500,
+      [ERROR_CODES.NOT_FOUND]: 404
+    };
+    return res.status(statusMap[result.error] || 500).json(
+      createErrorResponse(result.error, result.details)
+    );
+  }
+
+  res.json({
+    success: true,
+    data: result.data
+  });
 });
 
 router.get('/incident-archive/:incidentId', requireExportPermission, (req, res) => {
