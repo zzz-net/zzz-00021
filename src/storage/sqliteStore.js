@@ -140,6 +140,33 @@ function initTables(db) {
     CREATE INDEX IF NOT EXISTS idx_receipt_records_packageId ON receipt_records(receiptPackageId);
     CREATE INDEX IF NOT EXISTS idx_receipt_records_incidentId ON receipt_records(incidentId);
     CREATE INDEX IF NOT EXISTS idx_receipt_records_action ON receipt_records(action);
+
+    CREATE TABLE IF NOT EXISTS shift_handovers (
+      id TEXT PRIMARY KEY,
+      handoverUserId TEXT NOT NULL,
+      handoverUserName TEXT NOT NULL,
+      takeoverUserId TEXT NOT NULL,
+      takeoverUserName TEXT NOT NULL,
+      shiftStart TEXT NOT NULL,
+      shiftEnd TEXT NOT NULL,
+      incidentIds TEXT NOT NULL,
+      remark TEXT,
+      status TEXT NOT NULL,
+      confirmedAt TEXT,
+      confirmedByUserId TEXT,
+      confirmedByUserName TEXT,
+      revokedAt TEXT,
+      revokedByUserId TEXT,
+      revokedByUserName TEXT,
+      revokeReason TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_shift_handovers_status ON shift_handovers(status);
+    CREATE INDEX IF NOT EXISTS idx_shift_handovers_handoverUserId ON shift_handovers(handoverUserId);
+    CREATE INDEX IF NOT EXISTS idx_shift_handovers_takeoverUserId ON shift_handovers(takeoverUserId);
+    CREATE INDEX IF NOT EXISTS idx_shift_handovers_createdAt ON shift_handovers(createdAt);
   `);
 }
 
@@ -152,7 +179,7 @@ class SqliteStore {
   rowToObj(row) {
     if (!row) return row;
     const obj = {};
-    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint'];
+    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint', 'incidentIds'];
     for (const key of Object.keys(row)) {
       if (jsonFields.includes(key) && row[key] !== null && row[key] !== undefined) {
         try { obj[key] = JSON.parse(row[key]); } catch { obj[key] = row[key]; }
@@ -175,7 +202,7 @@ class SqliteStore {
       const columns = Object.keys(items[0]);
       const placeholders = columns.map(c => `@${c}`).join(', ');
       const stmt = this.db.prepare(`INSERT INTO ${this.entityName} (${columns.join(', ')}) VALUES (${placeholders})`);
-      const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint'];
+      const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint', 'incidentIds'];
       for (const item of items) {
         const toInsert = {};
         for (const col of columns) {
@@ -200,7 +227,7 @@ class SqliteStore {
   append(record) {
     const columns = Object.keys(record);
     const placeholders = columns.map(c => `@${c}`).join(', ');
-    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint'];
+    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint', 'incidentIds'];
     const toInsert = {};
     for (const col of columns) {
       if (jsonFields.includes(col) && record[col] && typeof record[col] === 'object') {
@@ -240,7 +267,7 @@ class SqliteStore {
     const updated = updater(existing);
     const columns = Object.keys(updated).filter(c => c !== 'id');
     const setClause = columns.map(c => `${c} = @${c}`).join(', ');
-    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint'];
+    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint', 'incidentIds'];
     const toUpdate = { id };
     for (const col of columns) {
       if (jsonFields.includes(col) && updated[col] && typeof updated[col] === 'object') {
@@ -259,7 +286,7 @@ class SqliteStore {
     const merged = { ...existing, ...newRecord, id };
     const columns = Object.keys(merged).filter(c => c !== 'id');
     const setClause = columns.map(c => `${c} = @${c}`).join(', ');
-    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint'];
+    const jsonFields = ['details', 'incidentSnapshot', 'evidenceSummary', 'auditSummary', 'exportFingerprint', 'incidentIds'];
     const toUpdate = { id };
     for (const col of columns) {
       if (jsonFields.includes(col) && merged[col] && typeof merged[col] === 'object') {

@@ -6,6 +6,7 @@ const usersStore = new SqliteStore('users');
 const auditLogsStore = new AuditLogSqliteStore();
 const receiptPackagesStore = new SqliteStore('receipt_packages');
 const receiptRecordsStore = new SqliteStore('receipt_records');
+const shiftHandoversStore = new SqliteStore('shift_handovers');
 
 module.exports = {
   incidentsStore,
@@ -13,5 +14,6 @@ module.exports = {
   usersStore,
   auditLogsStore,
   receiptPackagesStore,
-  receiptRecordsStore
+  receiptRecordsStore,
+  shiftHandoversStore
 };

@@ -8,6 +8,7 @@ const importsRouter = require('./imports');
 const receiptsRouter = require('./receipts');
 const receiptsPublicRouter = require('./receipts-public');
 const usersRouter = require('./users');
+const shiftHandoversRouter = require('./shiftHandovers');
 const { authMiddleware } = require('../middleware/auth');
 
 router.use('/users', authMiddleware, usersRouter);
@@ -17,6 +18,7 @@ router.use('/export', authMiddleware, exportsRouter);
 router.use('/import', authMiddleware, importsRouter);
 router.use('/receipts', receiptsPublicRouter);
 router.use('/receipts', authMiddleware, receiptsRouter);
+router.use('/shift-handovers', authMiddleware, shiftHandoversRouter);
 
 router.get('/health', (req, res) => {
   res.json({
@@ -29,7 +31,7 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/constants', (req, res) => {
-  const { INCIDENT_STATUS, INCIDENT_LEVEL, USER_ROLE, RECEIPT_PACKAGE_STATUS, RECEIPT_CONFLICT_STRATEGY, SORT_FIELDS, SORT_DIRECTIONS } = require('../constants/status');
+  const { INCIDENT_STATUS, INCIDENT_LEVEL, USER_ROLE, RECEIPT_PACKAGE_STATUS, RECEIPT_CONFLICT_STRATEGY, SHIFT_HANDOVER_STATUS, SORT_FIELDS, SORT_DIRECTIONS } = require('../constants/status');
   res.json({
     success: true,
     data: {
@@ -38,6 +40,7 @@ router.get('/constants', (req, res) => {
       userRole: USER_ROLE,
       receiptPackageStatus: RECEIPT_PACKAGE_STATUS,
       receiptConflictStrategy: RECEIPT_CONFLICT_STRATEGY,
+      shiftHandoverStatus: SHIFT_HANDOVER_STATUS,
       sortFields: SORT_FIELDS,
       sortDirections: SORT_DIRECTIONS
     }

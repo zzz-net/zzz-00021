@@ -5,6 +5,7 @@ const exportService = require('./exportService');
 const importService = require('./importService');
 const configService = require('./configService');
 const receiptService = require('./receiptService');
+const shiftHandoverService = require('./shiftHandoverService');
 
 module.exports = {
   incidentService,
@@ -13,5 +14,6 @@ module.exports = {
   exportService,
   importService,
   configService,
-  receiptService
+  receiptService,
+  shiftHandoverService
 };
