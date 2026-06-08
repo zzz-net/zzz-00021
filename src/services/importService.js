@@ -7,6 +7,104 @@ const { ERROR_CODES } = require('../constants/errors');
 const path = require('path');
 const fs = require('fs');
 
+function isPathWithinDir(filePath, dirPath) {
+  const resolvedFile = path.resolve(filePath);
+  const resolvedDir = path.resolve(dirPath);
+  const sep = path.sep;
+  const normalizedDir = resolvedDir.endsWith(sep) ? resolvedDir : resolvedDir + sep;
+  return resolvedFile === resolvedDir || resolvedFile.startsWith(normalizedDir);
+}
+
+function resolveArchiveFilePath(filename) {
+  const config = getExportConfig();
+  const resolvedExportDir = path.resolve(config.exportDir);
+  const rawPath = path.isAbsolute(filename)
+    ? path.resolve(filename)
+    : path.resolve(resolvedExportDir, filename);
+  return {
+    exportDir: resolvedExportDir, rawPath, config };
+}
+
+function validateArchiveFileAccess(user, filename) {
+  const { exportDir, rawPath } = resolveArchiveFilePath(filename);
+
+  if (!isPathWithinDir(rawPath, exportDir)) {
+    return {
+      success: false,
+      error: ERROR_CODES.IMPORT_VALIDATION_ERROR,
+      details: {
+        reason: '归档文件路径不在配置的导出目录范围内',
+        hint: '仅允许读取 exportDir 配置目录（含子目录）下的归档文件；不可使用 ../ 等路径穿越到上级目录，也不可读取同前缀的兄弟目录',
+        requestedPath: filename,
+        requestedResolved: rawPath,
+        exportDir
+      },
+      auditReason: 'path_outside_export_dir',
+      auditDetails: { requestedPath: filename, requestedResolved: rawPath, exportDir }
+    };
+  }
+
+  let stat;
+  try {
+    stat = fs.statSync(rawPath);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return {
+        success: false,
+        error: ERROR_CODES.NOT_FOUND,
+        details: {
+          reason: '归档文件不存在',
+          filePath: rawPath
+        },
+        auditReason: 'file_not_found',
+        auditDetails: { filePath: rawPath }
+      };
+    }
+    return {
+      success: false,
+      error: ERROR_CODES.IMPORT_FAILED,
+      details: {
+        reason: '无法访问归档文件',
+        filePath: rawPath,
+        message: err.message
+      },
+      auditReason: 'file_stat_error',
+      auditDetails: { filePath: rawPath, message: err.message }
+    };
+  }
+
+  if (!stat.isFile()) {
+    return {
+      success: false,
+      error: ERROR_CODES.IMPORT_VALIDATION_ERROR,
+      details: {
+        reason: '目标路径不是普通文件',
+        filePath: rawPath,
+        isDirectory: stat.isDirectory()
+      },
+      auditReason: 'path_not_a_file',
+      auditDetails: { filePath: rawPath, isDirectory: stat.isDirectory() }
+    };
+  }
+
+  try {
+    fs.accessSync(rawPath, fs.constants.R_OK);
+  } catch (err) {
+    return {
+      success: false,
+      error: ERROR_CODES.IMPORT_FAILED,
+      details: {
+        reason: '无读取权限',
+        filePath: rawPath
+      },
+      auditReason: 'file_read_permission_denied',
+      auditDetails: { filePath: rawPath }
+    };
+  }
+
+  return { success: true, filePath: rawPath, exportDir };
+}
+
 const REQUIRED_FILES = ['manifest.json', 'incident.json', 'evidences.json', 'audit_logs.json'];
 const SUPPORTED_SCHEMA_VERSIONS = ['1.0'];
 const SUPPORTED_DATA_FORMATS = ['json'];
@@ -488,56 +586,26 @@ function importIncidentArchive(user, archive, options = {}) {
 }
 
 function importIncidentArchiveFromFile(user, filename, options = {}) {
-  const config = getExportConfig();
-  const filePath = path.isAbsolute(filename) ? filename : path.join(config.exportDir, filename);
-
-  const resolvedDir = path.resolve(config.exportDir);
-  const resolvedFile = path.resolve(filePath);
-  if (!resolvedFile.startsWith(resolvedDir)) {
-    logAction(user.id, user.name, AUDIT_ACTION.DATA_IMPORT_FAILED, null, {
-      reason: 'path_traversal_attempt',
-      requestedPath: filename,
-      exportDir: config.exportDir
+  const accessCheck = validateArchiveFileAccess(user, filename);
+  if (!accessCheck.success) {
+    const auditAction = (accessCheck.auditReason === 'file_json_parse_error' || accessCheck.auditReason === 'path_not_a_file')
+      ? AUDIT_ACTION.DATA_IMPORT_VALIDATION_FAILED
+      : AUDIT_ACTION.DATA_IMPORT_FAILED;
+    logAction(user.id, user.name, auditAction, null, {
+      reason: accessCheck.auditReason,
+      ...accessCheck.auditDetails
     });
     return {
       success: false,
-      error: ERROR_CODES.IMPORT_VALIDATION_ERROR,
-      details: {
-        reason: '文件路径不在配置的导出目录范围内',
-        requestedPath: filename,
-        exportDir: config.exportDir
-      }
+      error: accessCheck.error,
+      details: accessCheck.details
     };
   }
 
-  if (!fs.existsSync(filePath)) {
-    logAction(user.id, user.name, AUDIT_ACTION.DATA_IMPORT_FAILED, null, {
-      reason: 'file_not_found',
-      filePath
-    });
-    return {
-      success: false,
-      error: ERROR_CODES.NOT_FOUND,
-      details: { filePath, reason: '归档文件不存在' }
-    };
-  }
-
+  const filePath = accessCheck.filePath;
+  let raw;
   try {
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const parsed = parseJSONSafe(raw);
-    if (!parsed.success) {
-      logAction(user.id, user.name, AUDIT_ACTION.DATA_IMPORT_VALIDATION_FAILED, null, {
-        reason: 'file_json_parse_error',
-        filePath,
-        parseError: parsed.error
-      });
-      return {
-        success: false,
-        error: ERROR_CODES.IMPORT_VALIDATION_ERROR,
-        details: { reason: '归档文件不是有效的 JSON', parseError: parsed.error, filePath }
-      };
-    }
-    return importIncidentArchive(user, parsed.data, options);
+    raw = fs.readFileSync(filePath, 'utf-8');
   } catch (err) {
     logAction(user.id, user.name, AUDIT_ACTION.DATA_IMPORT_FAILED, null, {
       reason: 'file_read_error',
@@ -550,12 +618,99 @@ function importIncidentArchiveFromFile(user, filename, options = {}) {
       details: { reason: '读取归档文件失败', message: err.message, filePath }
     };
   }
+
+  const parsed = parseJSONSafe(raw);
+  if (!parsed.success) {
+    logAction(user.id, user.name, AUDIT_ACTION.DATA_IMPORT_VALIDATION_FAILED, null, {
+      reason: 'file_json_parse_error',
+      filePath,
+      parseError: parsed.error
+    });
+    return {
+      success: false,
+      error: ERROR_CODES.IMPORT_VALIDATION_ERROR,
+      details: {
+        reason: '归档文件不是有效的 JSON',
+        parseError: parsed.error,
+        filePath,
+        hint: '请确认该文件为完整的事故归档包（含 manifest 与 files 字段）'
+      }
+    };
+  }
+
+  const result = importIncidentArchive(user, parsed.data, options);
+  if (result.success) {
+    result.data.sourceFile = {
+      filePath,
+      filename: path.basename(filePath),
+      exportDir: accessCheck.exportDir
+    };
+  }
+  return result;
+}
+
+function listImportableArchives(user) {
+  const config = getExportConfig();
+  const exportDir = path.resolve(config.exportDir);
+  const result = [];
+
+  if (!fs.existsSync(exportDir)) {
+    return { success: true, data: [], exportDir };
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(exportDir, { withFileTypes: true });
+  } catch (err) {
+    return {
+      success: false,
+      error: ERROR_CODES.IMPORT_FAILED,
+      details: { reason: '读取导出目录失败', message: err.message, exportDir }
+    };
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+    const fullPath = path.join(exportDir, entry.name);
+    try {
+      const stat = fs.statSync(fullPath);
+      const raw = fs.readFileSync(fullPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (parsed.manifest && parsed.files) {
+        result.push({
+          filename: entry.name,
+          filePath: fullPath,
+          size: stat.size,
+          mtime: stat.mtime.toISOString(),
+          exportDir,
+          manifest: {
+            exportId: parsed.manifest.exportId,
+            exportedAt: parsed.manifest.exportedAt,
+            incidentId: parsed.manifest.incidentId,
+            incidentTitle: parsed.manifest.incidentTitle,
+            dataFormat: parsed.manifest.dataFormat,
+            counts: parsed.manifest.counts
+          }
+        });
+      }
+    } catch (err) {
+    }
+  }
+
+  return {
+    success: true,
+    data: result.sort((a, b) => new Date(b.mtime) - new Date(a.mtime)),
+    exportDir
+  };
 }
 
 module.exports = {
   importIncidentArchive,
   importIncidentArchiveFromFile,
+  listImportableArchives,
   validateArchiveStructure,
   validateManifest,
+  validateArchiveFileAccess,
+  isPathWithinDir,
   CONFLICT_STRATEGIES
 };

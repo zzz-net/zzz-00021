@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T05:50:21.149Z",
+    "exportId": "5d6151c4-713b-457a-9de6-c289eea29cd9",
+    "dataFormat": "json",
+    "incidentId": "ab97e9d2-af9a-43ea-bffd-5a51a07d340d",
+    "incidentTitle": "路径边界测试-1780897821141",
+    "filters": {
+      "incidentId": "ab97e9d2-af9a-43ea-bffd-5a51a07d340d",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 0,
+      "auditLogs": 1
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T05:50:21.149Z\",\n  \"exportId\": \"5d6151c4-713b-457a-9de6-c289eea29cd9\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"ab97e9d2-af9a-43ea-bffd-5a51a07d340d\",\n  \"incidentTitle\": \"路径边界测试-1780897821141\",\n  \"filters\": {\n    \"incidentId\": \"ab97e9d2-af9a-43ea-bffd-5a51a07d340d\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 0,\n    \"auditLogs\": 1\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"ab97e9d2-af9a-43ea-bffd-5a51a07d340d\",\n  \"title\": \"路径边界测试-1780897821141\",\n  \"description\": \"用于测试路径边界的事故\",\n  \"location\": \"边界测试区\",\n  \"level\": \"low\",\n  \"occurredAt\": \"2026-06-08T05:50:21.141Z\",\n  \"status\": \"reported\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 0,\n  \"createdAt\": \"2026-06-08T05:50:21.144Z\",\n  \"updatedAt\": \"2026-06-08T05:50:21.144Z\"\n}",
+    "evidences.json": "[]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780897821144_zrng98er8\",\n    \"sequence\": 362,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"ab97e9d2-af9a-43ea-bffd-5a51a07d340d\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"路径边界测试-1780897821141\",\n      \"location\": \"边界测试区\",\n      \"level\": \"low\"\n    },\n    \"timestamp\": \"2026-06-08T05:50:21.144Z\"\n  }\n]"
+  }
+}

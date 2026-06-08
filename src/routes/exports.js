@@ -273,4 +273,27 @@ router.get('/saved', requireExportPermission, (req, res) => {
   });
 });
 
+router.get('/archives', requireImportPermission, (req, res) => {
+  const result = importService.listImportableArchives(req.user);
+  if (!result.success) {
+    logAction(req.user.id, req.user.name, AUDIT_ACTION.DATA_IMPORT_FAILED, null, {
+      reason: 'list_archives_failed',
+      details: result.details
+    });
+    return res.status(500).json(
+      createErrorResponse(result.error, result.details)
+    );
+  }
+  logAction(req.user.id, req.user.name, AUDIT_ACTION.DATA_IMPORTED, null, {
+    mode: 'list_archives',
+    exportDir: result.exportDir,
+    count: result.data.length
+  });
+  res.json({
+    success: true,
+    data: result.data,
+    exportDir: result.exportDir
+  });
+});
+
 module.exports = router;

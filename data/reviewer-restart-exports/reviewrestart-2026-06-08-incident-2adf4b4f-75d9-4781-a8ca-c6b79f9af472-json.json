@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T06:07:05.361Z",
+    "exportId": "a2abb70e-0a42-44bb-93e1-bc41c3ccadea",
+    "dataFormat": "json",
+    "incidentId": "2adf4b4f-75d9-4781-a8ca-c6b79f9af472",
+    "incidentTitle": "Restart import 20260608060705",
+    "filters": {
+      "incidentId": "2adf4b4f-75d9-4781-a8ca-c6b79f9af472",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 1,
+      "auditLogs": 3
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T06:07:05.361Z\",\n  \"exportId\": \"a2abb70e-0a42-44bb-93e1-bc41c3ccadea\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"2adf4b4f-75d9-4781-a8ca-c6b79f9af472\",\n  \"incidentTitle\": \"Restart import 20260608060705\",\n  \"filters\": {\n    \"incidentId\": \"2adf4b4f-75d9-4781-a8ca-c6b79f9af472\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 1,\n    \"auditLogs\": 3\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"2adf4b4f-75d9-4781-a8ca-c6b79f9af472\",\n  \"title\": \"Restart import 20260608060705\",\n  \"description\": \"restart persistence verification\",\n  \"location\": \"restart-zone\",\n  \"level\": \"low\",\n  \"occurredAt\": \"2026-06-08T05:57:05.2568966Z\",\n  \"status\": \"evidence_collecting\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 1,\n  \"createdAt\": \"2026-06-08T06:07:05.266Z\",\n  \"updatedAt\": \"2026-06-08T06:07:05.330Z\"\n}",
+    "evidences.json": "[\n  {\n    \"id\": \"df14e35b-e765-4078-bf2d-ffb786527bac\",\n    \"incidentId\": \"2adf4b4f-75d9-4781-a8ca-c6b79f9af472\",\n    \"sequence\": 1,\n    \"type\": \"photo\",\n    \"description\": \"restart-ev\",\n    \"collectedAt\": \"2026-06-08T06:05:05.3233058Z\",\n    \"collectorId\": \"reporter-001\",\n    \"collectorName\": \"张三\",\n    \"filePath\": null,\n    \"fileHash\": \"sha256:restart-612e0cdd3839496aa36ef4cde7d030f5\",\n    \"createdAt\": \"2026-06-08T06:07:05.330Z\"\n  }\n]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780898825266_0uymnlp7a\",\n    \"sequence\": 534,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"2adf4b4f-75d9-4781-a8ca-c6b79f9af472\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"Restart import 20260608060705\",\n      \"location\": \"restart-zone\",\n      \"level\": \"low\"\n    },\n    \"timestamp\": \"2026-06-08T06:07:05.266Z\"\n  },\n  {\n    \"id\": \"audit_1780898825298_of48rv1fg\",\n    \"sequence\": 535,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_status_changed\",\n    \"incidentId\": \"2adf4b4f-75d9-4781-a8ca-c6b79f9af472\",\n    \"previousStatus\": \"reported\",\n    \"currentStatus\": \"evidence_collecting\",\n    \"details\": {\n      \"from\": \"reported\",\n      \"to\": \"evidence_collecting\",\n      \"reason\": null\n    },\n    \"timestamp\": \"2026-06-08T06:07:05.298Z\"\n  },\n  {\n    \"id\": \"audit_1780898825330_jfaret3ul\",\n    \"sequence\": 536,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"evidence_added\",\n    \"incidentId\": \"2adf4b4f-75d9-4781-a8ca-c6b79f9af472\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"evidenceId\": \"df14e35b-e765-4078-bf2d-ffb786527bac\",\n      \"type\": \"photo\",\n      \"fileHash\": \"sha256:restart-612e0cdd3839496aa36ef4cde7d030f5\"\n    },\n    \"timestamp\": \"2026-06-08T06:07:05.330Z\"\n  }\n]"
+  }
+}

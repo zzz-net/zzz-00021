@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T05:54:54.986Z",
+    "exportId": "8717b795-5f90-403d-91c8-c974695e3718",
+    "dataFormat": "json",
+    "incidentId": "415ea5f1-cd75-48e2-9c3c-8da85de65bb6",
+    "incidentTitle": "跨重启导入测试事故-1780898053424",
+    "filters": {
+      "incidentId": "415ea5f1-cd75-48e2-9c3c-8da85de65bb6",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 0,
+      "auditLogs": 3
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T05:54:54.986Z\",\n  \"exportId\": \"8717b795-5f90-403d-91c8-c974695e3718\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n  \"incidentTitle\": \"跨重启导入测试事故-1780898053424\",\n  \"filters\": {\n    \"incidentId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 0,\n    \"auditLogs\": 3\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n  \"title\": \"跨重启导入测试事故-1780898053424\",\n  \"description\": \"测试服务重启后从配置目录读取并导入\",\n  \"location\": \"重启测试区\",\n  \"level\": \"low\",\n  \"occurredAt\": \"2026-06-08T05:54:13.424Z\",\n  \"status\": \"reported\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 0,\n  \"createdAt\": \"2026-06-08T05:54:13.425Z\",\n  \"updatedAt\": \"2026-06-08T05:54:13.425Z\"\n}",
+    "evidences.json": "[]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780898053426_iso5icoaz\",\n    \"sequence\": 413,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"跨重启导入测试事故-1780898053424\",\n      \"location\": \"重启测试区\",\n      \"level\": \"low\"\n    },\n    \"timestamp\": \"2026-06-08T05:54:13.426Z\"\n  },\n  {\n    \"id\": \"audit_1780898053431_pftetwzy7\",\n    \"sequence\": 414,\n    \"userId\": \"admin-001\",\n    \"userName\": \"孙管理\",\n    \"action\": \"data_exported\",\n    \"incidentId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"type\": \"incident_archive\",\n      \"format\": \"json\",\n      \"delivery\": \"file\",\n      \"savedPath\": \"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\verify-import-restart\\\\verify-import-restart-1780898053422-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json.json\",\n      \"finalName\": \"verify-import-restart-1780898053422-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json.json\",\n      \"renamed\": false,\n      \"count\": {\n        \"incidents\": 1,\n        \"evidences\": 0,\n        \"auditLogs\": 1\n      }\n    },\n    \"timestamp\": \"2026-06-08T05:54:13.431Z\"\n  },\n  {\n    \"id\": \"audit_1780898054930_tqj53ekwt\",\n    \"sequence\": 415,\n    \"userId\": \"admin-001\",\n    \"userName\": \"孙管理\",\n    \"action\": \"data_imported\",\n    \"incidentId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"exportId\": \"0478c4c9-15b5-47d8-842c-b5afb4c699d0\",\n      \"mode\": \"dryRun\",\n      \"strategy\": \"skip\",\n      \"skipped\": true,\n      \"diff\": {\n        \"conflict\": {\n          \"exists\": true,\n          \"strategy\": \"skip\",\n          \"existingId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\"\n        },\n        \"newIncidentId\": null,\n        \"evidencesCount\": 0,\n        \"auditLogsCount\": 0\n      }\n    },\n    \"timestamp\": \"2026-06-08T05:54:14.930Z\"\n  }\n]"
+  }
+}

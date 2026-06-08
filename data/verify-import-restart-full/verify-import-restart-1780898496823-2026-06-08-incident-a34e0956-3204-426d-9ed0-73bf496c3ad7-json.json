@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T06:01:36.863Z",
+    "exportId": "556e8355-0956-4999-86ab-f756306dffee",
+    "dataFormat": "json",
+    "incidentId": "a34e0956-3204-426d-9ed0-73bf496c3ad7",
+    "incidentTitle": "完整跨重启导入测试事故-1780898496837",
+    "filters": {
+      "incidentId": "a34e0956-3204-426d-9ed0-73bf496c3ad7",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 1,
+      "auditLogs": 3
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T06:01:36.863Z\",\n  \"exportId\": \"556e8355-0956-4999-86ab-f756306dffee\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"a34e0956-3204-426d-9ed0-73bf496c3ad7\",\n  \"incidentTitle\": \"完整跨重启导入测试事故-1780898496837\",\n  \"filters\": {\n    \"incidentId\": \"a34e0956-3204-426d-9ed0-73bf496c3ad7\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 1,\n    \"auditLogs\": 3\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"a34e0956-3204-426d-9ed0-73bf496c3ad7\",\n  \"title\": \"完整跨重启导入测试事故-1780898496837\",\n  \"description\": \"测试服务重启后从配置目录读取并导入\",\n  \"location\": \"完整重启测试区\",\n  \"level\": \"low\",\n  \"occurredAt\": \"2026-06-08T06:01:36.838Z\",\n  \"status\": \"evidence_collecting\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 1,\n  \"createdAt\": \"2026-06-08T06:01:36.841Z\",\n  \"updatedAt\": \"2026-06-08T06:01:36.852Z\"\n}",
+    "evidences.json": "[\n  {\n    \"id\": \"8d8e9a20-f834-41dc-be24-3b556918eecf\",\n    \"incidentId\": \"a34e0956-3204-426d-9ed0-73bf496c3ad7\",\n    \"sequence\": 1,\n    \"type\": \"document\",\n    \"description\": \"完整重启测试证据\",\n    \"collectedAt\": \"2026-06-08T06:01:36.848Z\",\n    \"collectorId\": \"reporter-001\",\n    \"collectorName\": \"张三\",\n    \"filePath\": null,\n    \"fileHash\": \"sha256:full-restart-test-1780898496848\",\n    \"createdAt\": \"2026-06-08T06:01:36.852Z\"\n  }\n]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780898496842_otadd4p7x\",\n    \"sequence\": 483,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"a34e0956-3204-426d-9ed0-73bf496c3ad7\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"完整跨重启导入测试事故-1780898496837\",\n      \"location\": \"完整重启测试区\",\n      \"level\": \"low\"\n    },\n    \"timestamp\": \"2026-06-08T06:01:36.842Z\"\n  },\n  {\n    \"id\": \"audit_1780898496847_9oc4u794x\",\n    \"sequence\": 484,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_status_changed\",\n    \"incidentId\": \"a34e0956-3204-426d-9ed0-73bf496c3ad7\",\n    \"previousStatus\": \"reported\",\n    \"currentStatus\": \"evidence_collecting\",\n    \"details\": {\n      \"from\": \"reported\",\n      \"to\": \"evidence_collecting\",\n      \"reason\": null\n    },\n    \"timestamp\": \"2026-06-08T06:01:36.847Z\"\n  },\n  {\n    \"id\": \"audit_1780898496853_ok96esl7i\",\n    \"sequence\": 485,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"evidence_added\",\n    \"incidentId\": \"a34e0956-3204-426d-9ed0-73bf496c3ad7\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"evidenceId\": \"8d8e9a20-f834-41dc-be24-3b556918eecf\",\n      \"type\": \"document\",\n      \"fileHash\": \"sha256:full-restart-test-1780898496848\"\n    },\n    \"timestamp\": \"2026-06-08T06:01:36.853Z\"\n  }\n]"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T05:54:55.052Z",
+    "exportId": "0e791fc8-e25e-4bda-9ceb-744db07c6cfa",
+    "dataFormat": "csv",
+    "incidentId": "415ea5f1-cd75-48e2-9c3c-8da85de65bb6",
+    "incidentTitle": "跨重启导入测试事故-1780898053424",
+    "filters": {
+      "incidentId": "415ea5f1-cd75-48e2-9c3c-8da85de65bb6",
+      "format": "csv"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 0,
+      "auditLogs": 7
+    },
+    "files": [
+      "incident.csv",
+      "evidences.csv",
+      "audit_logs.csv",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T05:54:55.052Z\",\n  \"exportId\": \"0e791fc8-e25e-4bda-9ceb-744db07c6cfa\",\n  \"dataFormat\": \"csv\",\n  \"incidentId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n  \"incidentTitle\": \"跨重启导入测试事故-1780898053424\",\n  \"filters\": {\n    \"incidentId\": \"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\",\n    \"format\": \"csv\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 0,\n    \"auditLogs\": 7\n  },\n  \"files\": [\n    \"incident.csv\",\n    \"evidences.csv\",\n    \"audit_logs.csv\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.csv": "ID,标题,描述,地点,级别,状态,发生时间,上报人,当前处理人,证据数量,退回原因,创建时间,更新时间\n415ea5f1-cd75-48e2-9c3c-8da85de65bb6,跨重启导入测试事故-1780898053424,测试服务重启后从配置目录读取并导入,重启测试区,low,reported,2026-06-08T05:54:13.424Z,张三,张三,0,,2026-06-08T05:54:13.425Z,2026-06-08T05:54:13.425Z",
+    "evidences.csv": "证据ID,事故ID,类型,描述,采集时间,采集人,附件路径,文件哈希,创建时间",
+    "audit_logs.csv": "序号,日志ID,用户ID,用户名,操作类型,关联事故ID,时间,详情\n413,audit_1780898053426_iso5icoaz,reporter-001,张三,incident_created,415ea5f1-cd75-48e2-9c3c-8da85de65bb6,2026-06-08T05:54:13.426Z,\"{\"\"title\"\":\"\"跨重启导入测试事故-1780898053424\"\",\"\"location\"\":\"\"重启测试区\"\",\"\"level\"\":\"\"low\"\"}\"\n414,audit_1780898053431_pftetwzy7,admin-001,孙管理,data_exported,415ea5f1-cd75-48e2-9c3c-8da85de65bb6,2026-06-08T05:54:13.431Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"file\"\",\"\"savedPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\verify-import-restart\\\\verify-import-restart-1780898053422-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json.json\"\",\"\"finalName\"\":\"\"verify-import-restart-1780898053422-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json.json\"\",\"\"renamed\"\":false,\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":0,\"\"auditLogs\"\":1}}\"\n415,audit_1780898054930_tqj53ekwt,admin-001,孙管理,data_imported,415ea5f1-cd75-48e2-9c3c-8da85de65bb6,2026-06-08T05:54:14.930Z,\"{\"\"exportId\"\":\"\"0478c4c9-15b5-47d8-842c-b5afb4c699d0\"\",\"\"mode\"\":\"\"dryRun\"\",\"\"strategy\"\":\"\"skip\"\",\"\"skipped\"\":true,\"\"diff\"\":{\"\"conflict\"\":{\"\"exists\"\":true,\"\"strategy\"\":\"\"skip\"\",\"\"existingId\"\":\"\"415ea5f1-cd75-48e2-9c3c-8da85de65bb6\"\"},\"\"newIncidentId\"\":null,\"\"evidencesCount\"\":0,\"\"auditLogsCount\"\":0}}\"\n424,audit_1780898094990_147su2mnh,admin-001,孙管理,data_exported,415ea5f1-cd75-48e2-9c3c-8da85de65bb6,2026-06-08T05:54:54.990Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"file\"\",\"\"savedPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\exports\\\\duty-export-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json.json\"\",\"\"finalName\"\":\"\"duty-export-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json.json\"\",\"\"renamed\"\":false,\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":0,\"\"auditLogs\"\":3}}\"\n425,audit_1780898095000_u4yoejzkf,admin-001,孙管理,data_exported,415ea5f1-cd75-48e2-9c3c-8da85de65bb6,2026-06-08T05:54:55.000Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"download\"\",\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":0,\"\"auditLogs\"\":4}}\"\n427,audit_1780898095012_ia5rno5i6,admin-001,孙管理,data_exported,415ea5f1-cd75-48e2-9c3c-8da85de65bb6,2026-06-08T05:54:55.012Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"format\"\":\"\"json\"\",\"\"delivery\"\":\"\"file\"\",\"\"savedPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\exports\\\\duty-export-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json-1.json\"\",\"\"finalName\"\":\"\"duty-export-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json-1.json\"\",\"\"renamed\"\":true,\"\"count\"\":{\"\"incidents\"\":1,\"\"evidences\"\":0,\"\"auditLogs\"\":5}}\"\n429,audit_1780898095030_4cbibhx83,admin-001,孙管理,data_export_failed,415ea5f1-cd75-48e2-9c3c-8da85de65bb6,2026-06-08T05:54:55.030Z,\"{\"\"type\"\":\"\"incident_archive\"\",\"\"reason\"\":\"\"file conflict\"\",\"\"format\"\":\"\"json\"\",\"\"targetPath\"\":\"\"D:\\\\workSpace\\\\AI__SPACE\\\\zzz-00021\\\\data\\\\exports\\\\duty-export-2026-06-08-incident-415ea5f1-cd75-48e2-9c3c-8da85de65bb6-json.json\"\"}\""
+  }
+}

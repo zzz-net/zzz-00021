@@ -420,6 +420,177 @@ curl -H "X-User-Id: admin-001" "http://localhost:3000/api/export/saved"
 
 ---
 
+### 16. 事故归档导入（恢复）
+
+将之前通过"导出事故完整归档包"接口生成的 JSON 归档重新导入系统。支持两种模式、两种冲突策略，所有写入使用 SQLite 事务保证原子性——要么事故、证据、审计日志三者全部成功写入，要么全部回滚，不会遗留半导入数据。
+
+**权限要求**：`admin` 或 `security` 角色。`reporter` / `foreman` 角色调用返回 403 `PERMISSION_DENIED`，并写入 `data_import_failed` 审计日志。
+
+**导入流程一览**：
+1. 结构校验：`manifest`、`files` 是否存在，`manifest.json` / `incident.json` / `evidences.json` / `audit_logs.json` 四类文件是否齐全
+2. manifest 自描述校验：`schemaVersion`（必须为 `1.0`）、`dataFormat`（仅支持 `json`）、`exportId`、`incidentId`、`counts` 计数是否与实际内容匹配
+3. 内容校验：事故必填字段、证据数组结构、审计日志数组结构
+4. 冲突检测：目标事故 ID 是否已存在
+5. 执行：`dryRun` 仅返回差异预览，`commit` 事务性写入
+
+#### 方式一：直接提交归档内容（适合从下载的 .json 归档恢复）
+
+```bash
+# 1) dryRun 模式：仅执行完整校验并返回差异预览，不写入任何数据
+curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  -d '{
+    "mode": "dryRun",
+    "conflictStrategy": "newId",
+    "archive": {
+      "manifest": {
+        "schemaVersion": "1.0",
+        "exportedAt": "2026-06-08T05:17:55.457Z",
+        "exportId": "cac86c8e-50b7-46ee-8b2f-ec57fb4776ac",
+        "dataFormat": "json",
+        "incidentId": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31",
+        "incidentTitle": "D区仓库漏水",
+        "counts": { "incidents": 1, "evidences": 2, "auditLogs": 5 },
+        "files": ["incident.json", "evidences.json", "audit_logs.json", "manifest.json"]
+      },
+      "files": {
+        "manifest.json": "{...}",
+        "incident.json": "{...}",
+        "evidences.json": "[...]",
+        "audit_logs.json": "[...]"
+      }
+    }
+  }' \
+  "http://localhost:3000/api/export/incident-archive/import"
+
+# 2) commit 模式：真正写入数据（建议先 dryRun 确认差异再执行 commit）
+curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  -d '{
+    "mode": "commit",
+    "conflictStrategy": "newId",
+    "archive": { /* 与 dryRun 相同的归档内容 */ }
+  }' \
+  "http://localhost:3000/api/export/incident-archive/import"
+```
+
+#### 方式二：从服务端导出目录读取已保存的归档恢复（推荐）
+
+归档文件必须位于通过 `/api/export/config` 配置的 `exportDir` 目录（含其所有子目录）内；路径必须真实收敛在该目录边界内——同前缀兄弟目录、`../` 上级穿越、其他盘符/根目录均会被拒绝。
+
+```bash
+# 先列出当前导出目录下已保存的归档
+curl -H "X-User-Id: admin-001" "http://localhost:3000/api/export/saved"
+
+# dryRun 预览（filename 支持文件名或绝对路径）
+curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  -d '{
+    "mode": "dryRun",
+    "conflictStrategy": "skip",
+    "filename": "duty-export-2026-06-08-incident-498f3b57-6e7e-4f01-ac10-9851fee60a31-json.json"
+  }' \
+  "http://localhost:3000/api/export/incident-archive/import-from-file"
+
+# commit 真正导入
+curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  -d '{
+    "mode": "commit",
+    "conflictStrategy": "newId",
+    "filename": "duty-export-2026-06-08-incident-498f3b57-6e7e-4f01-ac10-9851fee60a31-json.json"
+  }' \
+  "http://localhost:3000/api/export/incident-archive/import-from-file"
+```
+
+**请求参数**：
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `archive` | object | - | （方式一必填）完整归档内容，必须包含顶层 `manifest` 和 `files` 字段 |
+| `filename` | string | - | （方式二必填）导出目录下的文件名，或绝对路径（必须真实位于 `exportDir` 目录树内） |
+| `mode` | string | `dryRun` | 运行模式：`dryRun` 仅校验与预览差异，`commit` 实际写入 |
+| `conflictStrategy` | string | `skip` | 事故 ID 冲突策略：`skip` 冲突时跳过不写入，`newId` 生成新 UUID 并自动修正证据、审计日志的所有 incidentId 引用 |
+
+**dryRun 成功响应示例（200）**：
+```json
+{
+  "success": true,
+  "data": {
+    "mode": "dryRun",
+    "valid": true,
+    "readyForCommit": true,
+    "strategy": "newId",
+    "diff": {
+      "exportId": "cac86c8e-50b7-46ee-8b2f-ec57fb4776ac",
+      "exportedAt": "2026-06-08T05:17:55.457Z",
+      "sourceIncident": {
+        "id": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31",
+        "title": "D区仓库漏水",
+        "status": "reported",
+        "level": "medium"
+      },
+      "conflict": {
+        "exists": true,
+        "strategy": "newId",
+        "existingId": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31"
+      },
+      "plan": {
+        "skipped": false,
+        "oldIncidentId": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31",
+        "newIncidentId": "新的UUID（仅 newId 策略且发生冲突时有值）",
+        "incidentWillBeCreated": true,
+        "evidencesCount": 2,
+        "auditLogsCount": 5,
+        "remapped": true
+      },
+      "counts": { "incidents": 1, "evidences": 2, "auditLogs": 5 }
+    }
+  }
+}
+```
+
+**校验失败响应示例（400）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "IMPORT_VALIDATION_ERROR",
+    "message": "归档校验失败",
+    "details": {
+      "reason": "归档内容校验失败",
+      "errors": [
+        "缺少文件内容: evidences.json",
+        "incident.title 缺失或为空"
+      ],
+      "exportId": "cac86c8e-50b7-46ee-8b2f-ec57fb4776ac"
+    }
+  }
+}
+```
+
+**路径越界响应示例（400）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "IMPORT_VALIDATION_ERROR",
+    "message": "归档校验失败",
+    "details": {
+      "reason": "归档文件路径不在配置的导出目录范围内",
+      "hint": "仅允许读取 exportDir 配置目录（含子目录）下的归档文件；不可使用 ../ 等路径穿越到上级目录，也不可读取同前缀的兄弟目录",
+      "requestedPath": "../exports-evil/malicious.json",
+      "requestedResolved": "D:\\workSpace\\AI__SPACE\\zzz-00021\\data\\exports-evil\\malicious.json",
+      "exportDir": "D:\\workSpace\\AI__SPACE\\zzz-00021\\data\\exports"
+    }
+  }
+}
+```
+
+**审计日志**：
+- 导入成功 → `data_imported`
+- 归档校验失败 → `data_import_validation_failed`
+- 权限拒绝、路径越界、读取异常、写入异常 → `data_import_failed`
+
+所有审计日志均附带 `exportId`、策略、原因等详情，可通过 `/api/export/audit-logs` 查询。
+
+---
+
 ## 失败路径测试示例
 
 ### 1. 证据时间早于事故发生时间
@@ -619,6 +790,28 @@ node scripts/verify-export.js
 | 2 | 脚本执行异常（服务启动失败、未捕获异常等） |
 | 130 | 用户 Ctrl+C 中断 |
 
+## 导入验证脚本
+
+在 `scripts/verify-import.js` 提供了导入链路的可复现验证脚本，覆盖以下场景：
+
+1. **无权限测试**：普通上报人（reporter）尝试导入 → 返回 403 `PERMISSION_DENIED`，并写入失败审计日志
+2. **缺文件校验**：故意删除 manifest / incident / evidences / audit_logs 中任意一个文件 → 返回 400 `IMPORT_VALIDATION_ERROR`，错误响应中包含明确的缺失文件说明
+3. **冲突策略测试**：
+   - `skip` 策略：已存在事故 ID 时跳过，不写入新数据
+   - `newId` 策略：已存在事故 ID 时自动生成新 UUID，并自动修正证据和审计日志中的 incidentId 引用
+4. **导入后再导出内容一致**：导入一个归档 → 立即重新导出该事故 → 对比事故核心字段（title/description/location/level/status/occurredAt）和证据数量完全一致
+5. **服务重启后按配置目录读取归档再完成导入**：
+   - 设置自定义 exportDir → 导出归档到该目录 → 停止服务 → 重启服务 → 验证配置保留 → 用 `import-from-file` 接口从该目录读取归档并成功导入
+
+运行方式：
+```bash
+# 重要：运行前请先停止所有占用 3000 端口的进程
+# 脚本会自己管理服务生命周期（启动/停止/重启）
+node scripts/verify-import.js
+```
+
+退出码与 `verify-export.js` 相同：0=全部通过，1=断言失败，2=执行异常。
+
 ## 目录结构
 
 ```
@@ -628,12 +821,13 @@ node scripts/verify-export.js
 │   ├── constants/         # 状态、角色、错误码定义
 │   ├── middleware/        # 认证和权限中间件
 │   ├── storage/           # SQLite 存储层（sqliteStore.js）
-│   ├── services/          # 业务逻辑层（含 configService、exportService）
+│   ├── services/          # 业务逻辑层（含 configService、exportService、importService）
 │   └── routes/            # API 路由
 ├── scripts/
 │   ├── init.js            # 初始化用户数据（SQLite）
 │   ├── seed.js            # 生成示例数据（SQLite）
-│   └── verify-export.js   # 导出功能可复现验证脚本
+│   ├── verify-export.js   # 导出功能可复现验证脚本
+│   └── verify-import.js   # 导入功能可复现验证脚本
 ├── data/
 │   ├── duty-incidents.db  # SQLite 数据库
 │   └── exports/           # 默认导出归档目录
