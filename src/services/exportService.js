@@ -1,6 +1,7 @@
 const { incidentsStore, evidencesStore } = require('../storage');
 const { getAuditLogs, logAction, AUDIT_ACTION } = require('./auditService');
 const { getExportConfig } = require('./configService');
+const { getAllReceiptPackagesForIncident, getReceiptRecordsByIncident } = require('./receiptService');
 const { ERROR_CODES } = require('../constants/errors');
 const path = require('path');
 const fs = require('fs');
@@ -50,11 +51,24 @@ function logExportFailure(user, type, incidentId, details, reason) {
 
 function exportIncidents(user, format = 'json') {
   const incidents = incidentsStore.readAll();
+  const incidentsWithReceipts = incidents.map(inc => {
+    const receiptPackages = getAllReceiptPackagesForIncident(inc.id);
+    const pendingReceipt = receiptPackages.find(r => r.status === 'pending');
+    const lastReceipt = receiptPackages.length > 0 ? receiptPackages[0] : null;
+    return {
+      ...inc,
+      receiptPackageCount: receiptPackages.length,
+      hasPendingReceipt: !!pendingReceipt,
+      lastReceiptStatus: lastReceipt ? lastReceipt.status : null,
+      lastReceiptCreatedAt: lastReceipt ? lastReceipt.createdAt : null,
+      lastReceiptSignerName: lastReceipt ? lastReceipt.signerName : null
+    };
+  });
 
   logAction(user.id, user.name, AUDIT_ACTION.DATA_EXPORTED, null, {
     type: 'incidents',
     format,
-    count: incidents.length
+    count: incidentsWithReceipts.length
   });
 
   if (format === 'csv') {
@@ -70,13 +84,18 @@ function exportIncidents(user, format = 'json') {
       { key: 'currentHandlerName', label: '当前处理人' },
       { key: 'evidenceCount', label: '证据数量' },
       { key: 'returnReason', label: '退回原因' },
+      { key: 'receiptPackageCount', label: '签收包数量' },
+      { key: 'hasPendingReceipt', label: '有待签收' },
+      { key: 'lastReceiptStatus', label: '最新签收状态' },
+      { key: 'lastReceiptCreatedAt', label: '最新签收创建时间' },
+      { key: 'lastReceiptSignerName', label: '最新签收人' },
       { key: 'createdAt', label: '创建时间' },
       { key: 'updatedAt', label: '更新时间' }
     ];
-    return { format, content: toCSV(incidents, columns), filename: 'incidents.csv' };
+    return { format, content: toCSV(incidentsWithReceipts, columns), filename: 'incidents.csv' };
   }
 
-  return { format: 'json', content: JSON.stringify(incidents, null, 2), filename: 'incidents.json' };
+  return { format: 'json', content: JSON.stringify(incidentsWithReceipts, null, 2), filename: 'incidents.json' };
 }
 
 function exportEvidences(user, incidentId = null, format = 'json') {
@@ -140,7 +159,7 @@ function exportAuditLogs(user, filters = {}, format = 'json') {
   return { format: 'json', content: JSON.stringify(logs, null, 2), filename: 'audit_logs.json' };
 }
 
-function buildIncidentArchiveManifest(incident, evidences, auditLogs, format, filters, exportedAt) {
+function buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters, exportedAt) {
   return {
     schemaVersion: '1.0',
     exportedAt,
@@ -152,20 +171,24 @@ function buildIncidentArchiveManifest(incident, evidences, auditLogs, format, fi
     counts: {
       incidents: 1,
       evidences: evidences.length,
-      auditLogs: auditLogs.length
+      auditLogs: auditLogs.length,
+      receiptPackages: receiptPackages.length,
+      receiptRecords: receiptRecords.length
     },
     files: [
       `incident.${format}`,
       `evidences.${format}`,
       `audit_logs.${format}`,
+      `receipt_packages.${format}`,
+      `receipt_records.${format}`,
       'manifest.json'
     ]
   };
 }
 
-function buildIncidentArchiveContent(incident, evidences, auditLogs, format, filters) {
+function buildIncidentArchiveContent(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters) {
   const exportedAt = new Date().toISOString();
-  const manifest = buildIncidentArchiveManifest(incident, evidences, auditLogs, format, filters, exportedAt);
+  const manifest = buildIncidentArchiveManifest(incident, evidences, auditLogs, receiptPackages, receiptRecords, format, filters, exportedAt);
 
   if (format === 'csv') {
     const incidentColumns = [
@@ -204,9 +227,37 @@ function buildIncidentArchiveContent(incident, evidences, auditLogs, format, fil
       { key: 'timestamp', label: '时间' },
       { key: 'details', label: '详情' }
     ];
+    const receiptPackageColumns = [
+      { key: 'id', label: '签收包ID' },
+      { key: 'incidentId', label: '事故ID' },
+      { key: 'status', label: '状态' },
+      { key: 'deadline', label: '截止时间' },
+      { key: 'creatorName', label: '创建人' },
+      { key: 'receiverName', label: '接收人' },
+      { key: 'signerName', label: '签收人' },
+      { key: 'signedAt', label: '签收时间' },
+      { key: 'revokedByName', label: '撤销人' },
+      { key: 'revokedAt', label: '撤销时间' },
+      { key: 'revokeReason', label: '撤销原因' },
+      { key: 'exportFingerprint', label: '导出指纹' },
+      { key: 'createdAt', label: '创建时间' }
+    ];
+    const receiptRecordColumns = [
+      { key: 'id', label: '记录ID' },
+      { key: 'receiptPackageId', label: '签收包ID' },
+      { key: 'incidentId', label: '事故ID' },
+      { key: 'action', label: '操作类型' },
+      { key: 'operatorName', label: '操作人' },
+      { key: 'timestamp', label: '时间' },
+      { key: 'details', label: '详情' }
+    ];
     const flatAuditLogs = auditLogs.map(log => ({
       ...log,
       details: log.details ? JSON.stringify(log.details) : ''
+    }));
+    const flatReceiptRecords = receiptRecords.map(r => ({
+      ...r,
+      details: r.details ? JSON.stringify(r.details) : ''
     }));
 
     return {
@@ -215,7 +266,9 @@ function buildIncidentArchiveContent(incident, evidences, auditLogs, format, fil
         'manifest.json': JSON.stringify(manifest, null, 2),
         'incident.csv': toCSV([incident], incidentColumns),
         'evidences.csv': toCSV(evidences, evidenceColumns),
-        'audit_logs.csv': toCSV(flatAuditLogs, auditColumns)
+        'audit_logs.csv': toCSV(flatAuditLogs, auditColumns),
+        'receipt_packages.csv': toCSV(receiptPackages, receiptPackageColumns),
+        'receipt_records.csv': toCSV(flatReceiptRecords, receiptRecordColumns)
       }
     };
   }
@@ -226,7 +279,9 @@ function buildIncidentArchiveContent(incident, evidences, auditLogs, format, fil
       'manifest.json': JSON.stringify(manifest, null, 2),
       'incident.json': JSON.stringify(incident, null, 2),
       'evidences.json': JSON.stringify(evidences, null, 2),
-      'audit_logs.json': JSON.stringify(auditLogs, null, 2)
+      'audit_logs.json': JSON.stringify(auditLogs, null, 2),
+      'receipt_packages.json': JSON.stringify(receiptPackages, null, 2),
+      'receipt_records.json': JSON.stringify(receiptRecords, null, 2)
     }
   };
 }
@@ -247,9 +302,11 @@ function exportIncidentArchive(user, incidentId, format = 'json', options = {}) 
   const evidences = evidencesStore.findMany(e => e.incidentId === incidentId)
     .sort((a, b) => new Date(a.collectedAt) - new Date(b.collectedAt));
   const auditLogs = getAuditLogs({ incidentId });
+  const receiptPackages = getAllReceiptPackagesForIncident(incidentId);
+  const receiptRecords = getReceiptRecordsByIncident(incidentId);
 
   const filters = { incidentId, format: formatValid };
-  const { manifest, files } = buildIncidentArchiveContent(incident, evidences, auditLogs, formatValid, filters);
+  const { manifest, files } = buildIncidentArchiveContent(incident, evidences, auditLogs, receiptPackages, receiptRecords, formatValid, filters);
 
   if (options.downloadOnly) {
     logAction(user.id, user.name, AUDIT_ACTION.DATA_EXPORTED, incidentId, {

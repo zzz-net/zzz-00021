@@ -1,9 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
-const { incidentsStore, evidencesStore, auditLogsStore } = require('../storage');
+const { incidentsStore, evidencesStore, auditLogsStore, receiptPackagesStore, receiptRecordsStore } = require('../storage');
 const { getDb } = require('../storage/sqliteStore');
 const { logAction, AUDIT_ACTION } = require('./auditService');
 const { getExportConfig } = require('./configService');
 const { ERROR_CODES } = require('../constants/errors');
+const { RECEIPT_PACKAGE_STATUS } = require('../constants/status');
 const path = require('path');
 const fs = require('fs');
 
@@ -266,7 +267,7 @@ function checkIncidentConflict(incidentId) {
   return { exists: !!existing, existing };
 }
 
-function buildRemapPlan(manifest, incident, evidences, auditLogs, strategy) {
+function buildRemapPlan(manifest, incident, evidences, auditLogs, receiptPackages, receiptRecords, strategy) {
   const plan = {
     strategy,
     oldIncidentId: manifest.incidentId,
@@ -274,6 +275,8 @@ function buildRemapPlan(manifest, incident, evidences, auditLogs, strategy) {
     incidentData: null,
     evidences: [],
     auditLogs: [],
+    receiptPackages: [],
+    receiptRecords: [],
     skipped: false,
     skipReason: null
   };
@@ -328,6 +331,37 @@ function buildRemapPlan(manifest, incident, evidences, auditLogs, strategy) {
         };
       });
 
+      const packageIdMap = {};
+      plan.receiptPackages = (receiptPackages || []).map(pkg => {
+        const newPkgId = uuidv4();
+        packageIdMap[pkg.id] = newPkgId;
+        const now = new Date().toISOString();
+        const isPending = pkg.status === RECEIPT_PACKAGE_STATUS.PENDING;
+        return {
+          ...pkg,
+          id: newPkgId,
+          incidentId: newIncidentId,
+          receiptCode: isPending ? '' : (pkg.receiptCode || ''),
+          codeHash: isPending ? `imported_disabled_${newPkgId}` : (pkg.codeHash || ''),
+          status: isPending ? RECEIPT_PACKAGE_STATUS.REVOKED : pkg.status,
+          revokedById: isPending ? 'system' : pkg.revokedById,
+          revokedByName: isPending ? '系统导入处理' : pkg.revokedByName,
+          revokedAt: isPending ? now : pkg.revokedAt,
+          revokeReason: isPending ? (pkg.revokeReason || '导入归档：不恢复待签收包的有效签收码') : pkg.revokeReason,
+          supersededById: pkg.supersededById ? (packageIdMap[pkg.supersededById] || pkg.supersededById) : null
+        };
+      });
+
+      plan.receiptRecords = (receiptRecords || []).map(rec => {
+        const newRecId = uuidv4();
+        return {
+          ...rec,
+          id: newRecId,
+          receiptPackageId: packageIdMap[rec.receiptPackageId] || rec.receiptPackageId,
+          incidentId: newIncidentId
+        };
+      });
+
       return plan;
     }
   }
@@ -356,6 +390,50 @@ function buildRemapPlan(manifest, incident, evidences, auditLogs, strategy) {
       };
     }
     return { ...log, sequence: undefined };
+  });
+
+  const pkgIdMap = {};
+  plan.receiptPackages = (receiptPackages || []).map(pkg => {
+    const existingPkg = receiptPackagesStore.findById(pkg.id);
+    let newPkgId = pkg.id;
+    if (existingPkg) {
+      newPkgId = uuidv4();
+    }
+    pkgIdMap[pkg.id] = newPkgId;
+    const now = new Date().toISOString();
+    const isPending = pkg.status === RECEIPT_PACKAGE_STATUS.PENDING;
+    return {
+      ...pkg,
+      id: newPkgId,
+      incidentId: plan.newIncidentId || manifest.incidentId,
+      receiptCode: isPending ? '' : (pkg.receiptCode || ''),
+      codeHash: isPending ? `imported_disabled_${newPkgId}` : (pkg.codeHash || ''),
+      status: isPending ? RECEIPT_PACKAGE_STATUS.REVOKED : pkg.status,
+      revokedById: isPending ? 'system' : pkg.revokedById,
+      revokedByName: isPending ? '系统导入处理' : pkg.revokedByName,
+      revokedAt: isPending ? now : pkg.revokedAt,
+      revokeReason: isPending ? (pkg.revokeReason || '导入归档：不恢复待签收包的有效签收码') : pkg.revokeReason
+    };
+  });
+
+  for (const p of plan.receiptPackages) {
+    if (p.supersededById && pkgIdMap[p.supersededById]) {
+      p.supersededById = pkgIdMap[p.supersededById];
+    }
+  }
+
+  plan.receiptRecords = (receiptRecords || []).map(rec => {
+    const existingRec = receiptRecordsStore.findById(rec.id);
+    let newRecId = rec.id;
+    if (existingRec) {
+      newRecId = uuidv4();
+    }
+    return {
+      ...rec,
+      id: newRecId,
+      receiptPackageId: pkgIdMap[rec.receiptPackageId] || rec.receiptPackageId,
+      incidentId: plan.newIncidentId || manifest.incidentId
+    };
   });
 
   return plan;
@@ -397,13 +475,23 @@ function executeCommitPlan(plan, user, manifest) {
       auditLogsStore.append(log);
     }
 
+    for (const pkg of plan.receiptPackages) {
+      receiptPackagesStore.append(pkg);
+    }
+
+    for (const rec of plan.receiptRecords) {
+      receiptRecordsStore.append(rec);
+    }
+
     return {
       imported: true,
       newIncidentId: plan.newIncidentId || plan.oldIncidentId,
       oldIncidentId: plan.oldIncidentId,
       strategy: plan.strategy,
       evidencesImported: plan.evidences.length,
-      auditLogsImported: plan.auditLogs.length
+      auditLogsImported: plan.auditLogs.length,
+      receiptPackagesImported: plan.receiptPackages.length,
+      receiptRecordsImported: plan.receiptRecords.length
     };
   });
 
@@ -501,6 +589,22 @@ function importIncidentArchive(user, archive, options = {}) {
   }
   const auditLogs = auditLogsParse.data;
 
+  let receiptPackages = [];
+  if (archive.files['receipt_packages.json']) {
+    const rpParse = parseJSONSafe(archive.files['receipt_packages.json']);
+    if (rpParse.success && Array.isArray(rpParse.data)) {
+      receiptPackages = rpParse.data;
+    }
+  }
+
+  let receiptRecords = [];
+  if (archive.files['receipt_records.json']) {
+    const rrParse = parseJSONSafe(archive.files['receipt_records.json']);
+    if (rrParse.success && Array.isArray(rrParse.data)) {
+      receiptRecords = rrParse.data;
+    }
+  }
+
   const allErrors = [];
   allErrors.push(...validateManifest(manifest, incident, evidences, auditLogs));
   allErrors.push(...validateIncidentData(incident));
@@ -525,7 +629,7 @@ function importIncidentArchive(user, archive, options = {}) {
   }
 
   const conflict = checkIncidentConflict(manifest.incidentId);
-  const plan = buildRemapPlan(manifest, incident, evidences, auditLogs, strategy);
+  const plan = buildRemapPlan(manifest, incident, evidences, auditLogs, receiptPackages, receiptRecords, strategy);
 
   const diff = {
     exportId: manifest.exportId,
@@ -547,13 +651,17 @@ function importIncidentArchive(user, archive, options = {}) {
       incidentWillBeCreated: !plan.skipped,
       evidencesCount: plan.evidences.length,
       auditLogsCount: plan.auditLogs.length,
+      receiptPackagesCount: plan.receiptPackages.length,
+      receiptRecordsCount: plan.receiptRecords.length,
       evidenceIds: plan.evidences.map(ev => ({ old: ev.id, new: ev.id })),
       remapped: plan.newIncidentId !== null
     },
     counts: {
       incidents: 1,
       evidences: plan.evidences.length,
-      auditLogs: plan.auditLogs.length
+      auditLogs: plan.auditLogs.length,
+      receiptPackages: plan.receiptPackages.length,
+      receiptRecords: plan.receiptRecords.length
     }
   };
 
