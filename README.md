@@ -436,16 +436,72 @@ curl -X POST http://localhost:3000/api/incidents/<事故ID>/security-confirm \
 }
 ```
 
+### 5. 结案后新增证据被拒绝
+
+```bash
+# 假设事故已流转到 closed 状态
+curl -X POST http://localhost:3000/api/incidents/<事故ID>/evidences \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: reporter-001" \
+  -d '{
+    "description": "结案后试图补充证据",
+    "collectedAt": "2026-06-08T12:00:00.000Z",
+    "fileHash": "sha256:attempt_after_close"
+  }'
+```
+
+返回 400（不写入证据、不产生成功审计日志）：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INCIDENT_CLOSED",
+    "message": "事故已结案，无法新增证据，如需补充请先申请重新打开",
+    "details": {
+      "incidentId": "<事故ID>",
+      "currentStatus": "closed"
+    }
+  }
+}
+```
+
+### 6. 结案后试图通过 start-evidence 绕过（同样被拒绝）
+
+> `closed` 状态下 **所有状态流转接口**（`start-evidence` / `return` / `foreman-review` / `security-confirm` / `close`）都会返回 `INCIDENT_CLOSED`，**仅** `reopen`（security/admin 权限）是唯一合法入口。
+
+```bash
+curl -X POST http://localhost:3000/api/incidents/<事故ID>/start-evidence \
+  -H "X-User-Id: reporter-001"
+```
+
+返回 400（状态不变、不写成功审计）：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INCIDENT_CLOSED",
+    "message": "事故已结案，无法新增证据，如需补充请先申请重新打开",
+    "details": {
+      "incidentId": "<事故ID>",
+      "currentStatus": "closed",
+      "hint": "事故已结案，仅支持通过 reopen 接口重新打开"
+    }
+  }
+}
+```
+
 ## 数据持久化
 
-所有数据存储在 `data/` 目录下的 JSON 文件中，服务重启后数据不丢失：
+所有数据存储在 `data/duty-incidents.db`（SQLite 数据库）中，服务重启后证据顺序、当前状态、处理人和审计记录全部保留：
 
-| 文件            | 内容         |
-|-----------------|--------------|
-| users.json      | 用户数据     |
-| incidents.json  | 事故数据     |
-| evidences.json  | 证据数据     |
-| audit_logs.json | 追加式审计日志 |
+| 表名        | 内容             |
+|-------------|------------------|
+| users       | 用户数据         |
+| incidents   | 事故数据         |
+| evidences   | 证据数据         |
+| audit_logs  | 追加式审计日志（带 sequence 序号） |
+
+数据库文件位置：`data/duty-incidents.db`，可使用任意 SQLite 工具直接打开查看。
 
 ## 目录结构
 
@@ -455,13 +511,13 @@ curl -X POST http://localhost:3000/api/incidents/<事故ID>/security-confirm \
 │   ├── server.js          # 服务入口
 │   ├── constants/         # 状态、角色、错误码定义
 │   ├── middleware/        # 认证和权限中间件
-│   ├── storage/           # JSON 文件存储层
+│   ├── storage/           # SQLite 存储层（sqliteStore.js）
 │   ├── services/          # 业务逻辑层
 │   └── routes/            # API 路由
 ├── scripts/
-│   ├── init.js            # 初始化用户数据
-│   └── seed.js            # 生成示例数据
-├── data/                  # 数据文件（运行时生成）
+│   ├── init.js            # 初始化用户数据（SQLite）
+│   └── seed.js            # 生成示例数据（SQLite）
+├── data/                  # 数据目录（运行时生成 duty-incidents.db）
 ├── package.json
 └── README.md
 ```

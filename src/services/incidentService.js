@@ -72,13 +72,26 @@ function canTransitionStatus(currentStatus, targetStatus) {
   return allowed && allowed.includes(targetStatus);
 }
 
-function transitionStatus(user, incidentId, targetStatus, reason = null) {
+function transitionStatus(user, incidentId, targetStatus, reason = null, allowReopen = false) {
   const incident = incidentsStore.findById(incidentId);
   if (!incident) {
     return { success: false, error: ERROR_CODES.NOT_FOUND };
   }
 
-  if (!canTransitionStatus(incident.status, targetStatus)) {
+  if (incident.status === INCIDENT_STATUS.CLOSED) {
+    const isLegalReopen = allowReopen && targetStatus === INCIDENT_STATUS.EVIDENCE_COLLECTING;
+    if (!isLegalReopen) {
+      return {
+        success: false,
+        error: ERROR_CODES.INCIDENT_CLOSED,
+        details: {
+          incidentId,
+          currentStatus: incident.status,
+          hint: '事故已结案，仅支持通过 reopen 接口重新打开'
+        }
+      };
+    }
+  } else if (!canTransitionStatus(incident.status, targetStatus)) {
     return { 
       success: false, 
       error: ERROR_CODES.INVALID_STATUS_TRANSITION,
@@ -132,7 +145,7 @@ function startEvidenceCollection(user, incidentId) {
 }
 
 function reopenIncident(user, incidentId, reason) {
-  return transitionStatus(user, incidentId, INCIDENT_STATUS.EVIDENCE_COLLECTING, reason);
+  return transitionStatus(user, incidentId, INCIDENT_STATUS.EVIDENCE_COLLECTING, reason, true);
 }
 
 module.exports = {
