@@ -1,0 +1,31 @@
+{
+  "manifest": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-06-08T05:15:39.524Z",
+    "exportId": "33491130-abdb-40a8-872f-c4962d4273a1",
+    "dataFormat": "json",
+    "incidentId": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31",
+    "incidentTitle": "reviewer-owned-export-check",
+    "filters": {
+      "incidentId": "f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31",
+      "format": "json"
+    },
+    "counts": {
+      "incidents": 1,
+      "evidences": 0,
+      "auditLogs": 1
+    },
+    "files": [
+      "incident.json",
+      "evidences.json",
+      "audit_logs.json",
+      "manifest.json"
+    ]
+  },
+  "files": {
+    "manifest.json": "{\n  \"schemaVersion\": \"1.0\",\n  \"exportedAt\": \"2026-06-08T05:15:39.524Z\",\n  \"exportId\": \"33491130-abdb-40a8-872f-c4962d4273a1\",\n  \"dataFormat\": \"json\",\n  \"incidentId\": \"f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31\",\n  \"incidentTitle\": \"reviewer-owned-export-check\",\n  \"filters\": {\n    \"incidentId\": \"f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31\",\n    \"format\": \"json\"\n  },\n  \"counts\": {\n    \"incidents\": 1,\n    \"evidences\": 0,\n    \"auditLogs\": 1\n  },\n  \"files\": [\n    \"incident.json\",\n    \"evidences.json\",\n    \"audit_logs.json\",\n    \"manifest.json\"\n  ]\n}",
+    "incident.json": "{\n  \"id\": \"f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31\",\n  \"title\": \"reviewer-owned-export-check\",\n  \"description\": \"manual reviewer incident\",\n  \"location\": \"review-zone\",\n  \"level\": \"low\",\n  \"occurredAt\": \"2026-06-08T05:15:39.4472584Z\",\n  \"status\": \"reported\",\n  \"reporterId\": \"reporter-001\",\n  \"reporterName\": \"张三\",\n  \"currentHandlerId\": \"reporter-001\",\n  \"currentHandlerName\": \"张三\",\n  \"returnReason\": null,\n  \"evidenceCount\": 0,\n  \"createdAt\": \"2026-06-08T05:15:39.471Z\",\n  \"updatedAt\": \"2026-06-08T05:15:39.471Z\"\n}",
+    "evidences.json": "[]",
+    "audit_logs.json": "[\n  {\n    \"id\": \"audit_1780895739472_7x1fwqqrh\",\n    \"sequence\": 160,\n    \"userId\": \"reporter-001\",\n    \"userName\": \"张三\",\n    \"action\": \"incident_created\",\n    \"incidentId\": \"f0cc5099-ce4c-4111-ab2f-fbdca3b4ae31\",\n    \"previousStatus\": null,\n    \"currentStatus\": null,\n    \"details\": {\n      \"title\": \"reviewer-owned-export-check\",\n      \"location\": \"review-zone\",\n      \"level\": \"low\"\n    },\n    \"timestamp\": \"2026-06-08T05:15:39.472Z\"\n  }\n]"
+  }
+}

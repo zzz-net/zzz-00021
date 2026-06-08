@@ -588,8 +588,36 @@ curl -X POST http://localhost:3000/api/incidents/<事故ID>/start-evidence \
 | incidents   | 事故数据         |
 | evidences   | 证据数据         |
 | audit_logs  | 追加式审计日志（带 sequence 序号） |
+| app_config  | 应用配置（导出目录、文件名前缀、冲突策略等，服务重启后保持生效） |
 
 数据库文件位置：`data/duty-incidents.db`，可使用任意 SQLite 工具直接打开查看。
+
+导出归档默认保存在 `data/exports/` 目录下，可通过 `/api/export/config` 接口修改。
+
+## 导出验证脚本
+
+在 `scripts/verify-export.js` 提供了完整的可复现验证脚本，覆盖以下场景：
+
+1. 普通上报人（reporter）无权限导出 → 返回 403，并写入失败审计日志
+2. 事故完整归档包导出内容一致性 → manifest 计数、文件列表与实际数据核对（JSON 和 CSV 两种内部格式）
+3. 同名冲突处理（suffix 策略自动加后缀；error 策略返回 409 明确冲突）
+4. CSV 归档、已保存列表、成功/失败/配置变更三类审计日志
+5. **配置跨重启持久化** — 脚本自动执行：设置导出目录和文件名前缀 → 停止服务 → 重新启动服务 → 读取配置并深度断言完全一致；失败时打印逐字段差异并退出非零
+
+运行方式：
+```bash
+# 重要：运行前请先停止所有占用 3000 端口的进程（如手动启动的 npm start）
+# 脚本会自己以子进程方式启动和停止服务，完成跨重启验证
+node scripts/verify-export.js
+```
+
+退出码约定：
+| 退出码 | 含义 |
+|--------|------|
+| 0 | 所有检查通过 |
+| 1 | 存在断言失败（失败详情会逐行打印，包括跨重启配置差异） |
+| 2 | 脚本执行异常（服务启动失败、未捕获异常等） |
+| 130 | 用户 Ctrl+C 中断 |
 
 ## 目录结构
 
@@ -600,12 +628,15 @@ curl -X POST http://localhost:3000/api/incidents/<事故ID>/start-evidence \
 │   ├── constants/         # 状态、角色、错误码定义
 │   ├── middleware/        # 认证和权限中间件
 │   ├── storage/           # SQLite 存储层（sqliteStore.js）
-│   ├── services/          # 业务逻辑层
+│   ├── services/          # 业务逻辑层（含 configService、exportService）
 │   └── routes/            # API 路由
 ├── scripts/
 │   ├── init.js            # 初始化用户数据（SQLite）
-│   └── seed.js            # 生成示例数据（SQLite）
-├── data/                  # 数据目录（运行时生成 duty-incidents.db）
+│   ├── seed.js            # 生成示例数据（SQLite）
+│   └── verify-export.js   # 导出功能可复现验证脚本
+├── data/
+│   ├── duty-incidents.db  # SQLite 数据库
+│   └── exports/           # 默认导出归档目录
 ├── package.json
 └── README.md
 ```

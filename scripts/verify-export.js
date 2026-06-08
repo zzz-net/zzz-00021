@@ -1,13 +1,22 @@
 const http = require('http');
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const net = require('net');
 
 const BASE_URL = 'http://localhost:3000/api';
 const ADMIN = 'admin-001';
 const SECURITY = 'security-001';
 const REPORTER = 'reporter-001';
+const SERVER_ENTRY = path.join(__dirname, '..', 'src', 'server.js');
 
 let passCount = 0;
 let failCount = 0;
 const failures = [];
+
+let serverProc = null;
+let serverStdoutBuf = '';
+let serverStderrBuf = '';
 
 function request(method, path, { userId, body, query } = {}) {
   return new Promise((resolve) => {
@@ -57,21 +66,172 @@ function assert(label, condition, detail) {
   }
 }
 
+function canonicalize(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(canonicalize);
+  if (typeof obj === 'object') {
+    const sorted = {};
+    for (const k of Object.keys(obj).sort()) sorted[k] = canonicalize(obj[k]);
+    return sorted;
+  }
+  return obj;
+}
+
+function assertDeepEqual(label, actual, expected) {
+  const actualC = JSON.stringify(canonicalize(actual));
+  const expectedC = JSON.stringify(canonicalize(expected));
+  const match = actualC === expectedC;
+  if (match) {
+    passCount++;
+    console.log(`  ✓ ${label}`);
+  } else {
+    failCount++;
+    const diff = [];
+    const allKeys = new Set([...Object.keys(actual || {}), ...Object.keys(expected || {})]);
+    for (const k of Array.from(allKeys).sort()) {
+      const a = actual ? actual[k] : undefined;
+      const e = expected ? expected[k] : undefined;
+      if (JSON.stringify(canonicalize(a)) !== JSON.stringify(canonicalize(e))) {
+        diff.push(`    ${k}: expected=${JSON.stringify(e)}, actual=${JSON.stringify(a)}`);
+      }
+    }
+    const msg = diff.length > 0
+      ? `${label}\n${diff.join('\n')}`
+      : `${label} — expected=${JSON.stringify(expected)}, actual=${JSON.stringify(actual)}`;
+    failures.push(msg);
+    console.log(`  ✗ ${msg}`);
+  }
+}
+
 async function section(title, fn) {
   console.log(`\n=== ${title} ===`);
   await fn();
 }
 
+function checkPortInUse(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') resolve(true);
+      else resolve(false);
+    });
+    server.once('listening', () => {
+      server.close();
+      resolve(false);
+    });
+    server.listen(port);
+  });
+}
+
+function startServer() {
+  return new Promise(async (resolve, reject) => {
+    const inUse = await checkPortInUse(3000);
+    if (inUse) {
+      return reject(new Error('端口 3000 已被占用，请先停止占用该端口的进程（例如已手动启动的 npm start）。验证脚本需要自己管理服务生命周期。'));
+    }
+
+    serverProc = spawn('node', [SERVER_ENTRY], {
+      cwd: path.join(__dirname, '..'),
+      env: process.env
+    });
+
+    serverStdoutBuf = '';
+    serverStderrBuf = '';
+    serverProc.stdout.on('data', (d) => { serverStdoutBuf += d.toString(); });
+    serverProc.stderr.on('data', (d) => { serverStderrBuf += d.toString(); });
+
+    serverProc.on('exit', (code) => {
+      if (serverProc) {
+        console.log(`\n[server] 进程退出，code=${code}`);
+        if (serverStderrBuf) console.log(`[server stderr]\n${serverStderrBuf}`);
+      }
+    });
+
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      try {
+        const health = await request('GET', '/health');
+        if (health.status === 200) {
+          resolve();
+          return;
+        }
+      } catch {}
+      await new Promise(r => setTimeout(r, 300));
+    }
+    reject(new Error('服务启动超时。stdout: ' + serverStdoutBuf + '\nstderr: ' + serverStderrBuf));
+  });
+}
+
+function stopServer() {
+  return new Promise((resolve) => {
+    if (!serverProc) { resolve(); return; }
+    const proc = serverProc;
+    serverProc = null;
+    let resolved = false;
+    const finish = () => { if (!resolved) { resolved = true; resolve(); } };
+    proc.on('exit', finish);
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', proc.pid, '/T', '/F']);
+      } else {
+        proc.kill('SIGTERM');
+      }
+    } catch {
+      try { proc.kill('SIGKILL'); } catch {}
+    }
+    setTimeout(finish, 5000);
+  });
+}
+
+async function restartServer() {
+  await stopServer();
+  await new Promise(r => setTimeout(r, 500));
+  await startServer();
+}
+
+function cleanupAndExit(exitCode) {
+  if (serverProc) {
+    const proc = serverProc;
+    serverProc = null;
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', proc.pid, '/T', '/F']);
+      } else {
+        proc.kill('SIGKILL');
+      }
+    } catch {}
+  }
+  process.exit(exitCode);
+}
+
+process.on('SIGINT', () => cleanupAndExit(130));
+process.on('SIGTERM', () => cleanupAndExit(143));
+process.on('uncaughtException', (err) => { console.error('uncaughtException:', err); cleanupAndExit(2); });
+
 async function main() {
   console.log('导出功能可复现验证脚本');
   console.log('========================');
+  console.log(`服务入口: ${SERVER_ENTRY}`);
+  console.log('');
 
-  const health = await request('GET', '/health');
-  if (health.status !== 200) {
-    console.error('服务未启动，请先运行 npm start');
-    process.exit(1);
+  try {
+    await startServer();
+  } catch (err) {
+    console.error('启动服务失败:', err.message);
+    process.exit(2);
   }
-  console.log('服务已连接 ✓');
+  console.log('服务已启动 ✓');
+
+  const defaultExportDir = path.join(__dirname, '..', 'data', 'exports');
+  await request('PUT', '/export/config', {
+    userId: ADMIN,
+    body: {
+      filenamePrefix: 'duty-export',
+      exportDir: defaultExportDir,
+      conflictStrategy: 'suffix'
+    }
+  });
+  console.log('已重置导出配置为默认值 ✓');
 
   const incidentsResp = await request('GET', '/incidents', { userId: ADMIN });
   const incidents = incidentsResp.body && incidentsResp.body.data ? incidentsResp.body.data : [];
@@ -106,8 +266,6 @@ async function main() {
     const r3 = await request('GET', '/export/config', { userId: REPORTER });
     assert('GET /export/config 返回 403', r3.status === 403, `实际状态: ${r3.status}`);
 
-    const logsResp = await request('GET', `/incidents/${testIncidentId}/audit-logs`, { userId: ADMIN });
-    const logsAll = (logsResp.body && logsResp.body.data) || [];
     const globalLogs = await request('GET', '/export/audit-logs', {
       userId: ADMIN, query: { action: 'data_export_failed', userId: REPORTER, format: 'json' }
     });
@@ -118,15 +276,11 @@ async function main() {
 
   let savedArchivePath = null;
   let savedArchiveName = null;
-  let manifestRef = null;
 
   await section('2. 单事故完整归档导出 — 内容一致性', async () => {
     const detailResp = await request('GET', `/incidents/${testIncidentId}`, { userId: ADMIN });
     const detail = detailResp.body.data;
     const expectedEvidenceCount = (detail.evidences || []).length;
-
-    const logsResp = await request('GET', `/incidents/${testIncidentId}/audit-logs`, { userId: ADMIN });
-    const expectedAuditCount = (logsResp.body && logsResp.body.data) ? logsResp.body.data.length : 0;
 
     const archiveResp = await request('POST', `/export/incident-archive/${testIncidentId}`, {
       userId: ADMIN, body: { format: 'json' }
@@ -138,7 +292,6 @@ async function main() {
     const data = archiveResp.body.data;
     savedArchivePath = data.savedPath;
     savedArchiveName = data.finalName;
-    manifestRef = data.manifest;
 
     assert('manifest 存在', !!data.manifest);
     assert('manifest.schemaVersion = 1.0', data.manifest && data.manifest.schemaVersion === '1.0');
@@ -187,13 +340,21 @@ async function main() {
       return;
     }
 
+    await request('PUT', '/export/config', {
+      userId: ADMIN, body: { conflictStrategy: 'suffix' }
+    });
+
     const resp1 = await request('POST', `/export/incident-archive/${testIncidentId}`, {
       userId: ADMIN, body: { format: 'json' }
     });
     assert('默认 suffix 策略：再次导出不报错', resp1.status === 200, `实际 ${resp1.status}`);
+    if (resp1.status !== 200 || !resp1.body || !resp1.body.data) {
+      console.log('  （后续同名冲突断言跳过）');
+      return;
+    }
     assert('自动添加后缀 renamed=true',
-      resp1.body && resp1.body.data && resp1.body.data.renamed === true,
-      `实际 renamed=${resp1.body && resp1.body.data && resp1.body.data.renamed}`);
+      resp1.body.data.renamed === true,
+      `实际 renamed=${resp1.body.data.renamed}`);
     assert('最终文件名与上次不同',
       resp1.body.data.finalName !== savedArchiveName,
       `${resp1.body.data.finalName} vs ${savedArchiveName}`);
@@ -219,9 +380,9 @@ async function main() {
     });
   });
 
-  await section('4. 配置跨重启持久化 + CSV 格式归档', async () => {
-    const uniquePrefix = 'verify-' + Date.now();
-    const uniqueDir = require('path').join(__dirname, '..', 'data', 'verify-exports');
+  await section('4. CSV 格式归档 + 已保存列表 + 审计日志', async () => {
+    const uniquePrefix = 'verify-section4-' + Date.now();
+    const uniqueDir = path.join(__dirname, '..', 'data', 'verify-exports-section4');
 
     const putResp = await request('PUT', '/export/config', {
       userId: ADMIN,
@@ -234,12 +395,12 @@ async function main() {
     assert('PUT /export/config 成功', putResp.status === 200);
     assert('返回 filenamePrefix 匹配', putResp.body.data.filenamePrefix === uniquePrefix);
     assert('返回 exportDir 匹配（绝对路径）',
-      putResp.body.data.exportDir === require('path').resolve(uniqueDir));
+      putResp.body.data.exportDir === path.resolve(uniqueDir));
 
     const getResp = await request('GET', '/export/config', { userId: SECURITY });
     assert('GET /export/config 读取到相同配置', getResp.status === 200);
-    assert('filenamePrefix 持久化匹配', getResp.body.data.filenamePrefix === uniquePrefix);
-    assert('conflictStrategy 持久化匹配', getResp.body.data.conflictStrategy === 'suffix');
+    assert('filenamePrefix 进程内匹配', getResp.body.data.filenamePrefix === uniquePrefix);
+    assert('conflictStrategy 进程内匹配', getResp.body.data.conflictStrategy === 'suffix');
 
     const csvResp = await request('POST', `/export/incident-archive/${testIncidentId}`, {
       userId: ADMIN, body: { format: 'csv' }
@@ -251,7 +412,7 @@ async function main() {
     assert('files 包含 audit_logs.csv', csvResp.body.data.files.includes('audit_logs.csv'));
     assert('文件名含自定义前缀', csvResp.body.data.finalName.startsWith(uniquePrefix));
     assert('文件保存在自定义目录',
-      csvResp.body.data.savedPath.startsWith(require('path').resolve(uniqueDir)));
+      csvResp.body.data.savedPath.startsWith(path.resolve(uniqueDir)));
 
     const listResp = await request('GET', '/export/saved', { userId: ADMIN });
     assert('GET /export/saved 成功', listResp.status === 200);
@@ -261,10 +422,10 @@ async function main() {
     assert('列表条目含 fullPath', !!savedItem.fullPath);
     assert('列表条目含 manifest', !!savedItem.manifest && !!savedItem.manifest.exportId);
 
-    const logsResp = await request('GET', '/export/audit-logs', {
+    const configLogsResp = await request('GET', '/export/audit-logs', {
       userId: ADMIN, query: { action: 'export_config_updated', format: 'json' }
     });
-    const configLogs = Array.isArray(logsResp.body) ? logsResp.body : [];
+    const configLogs = Array.isArray(configLogsResp.body) ? configLogsResp.body : [];
     assert('配置更新审计日志已记录（export_config_updated）',
       configLogs.length > 0, `找到 ${configLogs.length} 条`);
 
@@ -274,17 +435,68 @@ async function main() {
     const successLogs = Array.isArray(successResp.body) ? successResp.body : [];
     assert('成功导出审计日志已记录（data_exported）',
       successLogs.length > 0, `找到 ${successLogs.length} 条`);
+  });
 
-    console.log('\n  【跨重启验证提示】');
-    console.log(`    当前 filenamePrefix = ${uniquePrefix}`);
-    console.log(`    当前 exportDir = ${require('path').resolve(uniqueDir)}`);
-    console.log('    重启服务后执行:');
-    console.log(`      curl -H "X-User-Id: admin-001" ${BASE_URL}/export/config`);
-    console.log('    应返回相同的 filenamePrefix 和 exportDir，证明配置持久化生效。');
+  let crossRestartExpected = null;
 
-    await request('PUT', '/export/config', {
-      userId: ADMIN, body: { filenamePrefix: 'duty-export', conflictStrategy: 'suffix' }
+  await section('5. 配置跨重启持久化（自动：改配置 → 停服务 → 启服务 → 读配置 → 断言）', async () => {
+    const uniquePrefix = 'verify-restart-' + Date.now();
+    const uniqueDir = path.join(__dirname, '..', 'data', 'verify-exports-restart');
+
+    console.log('  [步骤 1/4] 设置自定义配置...');
+    const putResp = await request('PUT', '/export/config', {
+      userId: ADMIN,
+      body: {
+        filenamePrefix: uniquePrefix,
+        exportDir: uniqueDir,
+        conflictStrategy: 'error'
+      }
     });
+    assert('设置配置成功（重启前）', putResp.status === 200);
+
+    crossRestartExpected = {
+      filenamePrefix: uniquePrefix,
+      exportDir: path.resolve(uniqueDir),
+      conflictStrategy: 'error'
+    };
+
+    const preGet = await request('GET', '/export/config', { userId: ADMIN });
+    assertDeepEqual('重启前读取配置与写入值完全一致',
+      preGet.body.data,
+      crossRestartExpected);
+
+    console.log('  [步骤 2/4] 停止服务...');
+    await stopServer();
+    await new Promise(r => setTimeout(r, 1000));
+
+    const portAfterStop = await checkPortInUse(3000);
+    assert('服务已停止（端口 3000 释放）', portAfterStop === false, `端口仍被占用: ${portAfterStop}`);
+
+    console.log('  [步骤 3/4] 重新启动服务...');
+    try {
+      await startServer();
+    } catch (err) {
+      assert('服务重启成功', false, err.message);
+      return;
+    }
+    assert('服务重启成功', true);
+
+    console.log('  [步骤 4/4] 重启后读取配置并断言...');
+    const postGet = await request('GET', '/export/config', { userId: ADMIN });
+    assert('重启后 GET /export/config 成功', postGet.status === 200);
+
+    assertDeepEqual(
+      '重启后配置与重启前设置完全一致（持久化生效）',
+      postGet.body.data,
+      crossRestartExpected
+    );
+
+    const postGetBySecurity = await request('GET', '/export/config', { userId: SECURITY });
+    assertDeepEqual(
+      'security 角色读取到相同配置（权限链路验证）',
+      postGetBySecurity.body.data,
+      crossRestartExpected
+    );
   });
 
   console.log('\n========================');
@@ -292,13 +504,19 @@ async function main() {
   if (failures.length > 0) {
     console.log('\n失败详情:');
     failures.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
-    process.exit(1);
+    cleanupAndExit(1);
   } else {
     console.log('\n所有检查通过 ✓');
+    console.log('- reporter 无权限导出（带失败审计）');
+    console.log('- 单事故 JSON/CSV 归档内容一致性 + manifest 自描述');
+    console.log('- 同名冲突 suffix/error 两种策略');
+    console.log('- 成功/失败/配置变更 三类审计日志');
+    console.log('- 跨重启配置持久化（自动停止+重启+断言）');
+    cleanupAndExit(0);
   }
 }
 
 main().catch((err) => {
   console.error('脚本执行出错:', err);
-  process.exit(2);
+  cleanupAndExit(2);
 });
