@@ -1,0 +1,32 @@
+[
+  {
+    "id": "reporter-001",
+    "name": "张三",
+    "role": "reporter",
+    "createdAt": "2026-06-08T01:21:03.467Z"
+  },
+  {
+    "id": "reporter-002",
+    "name": "李四",
+    "role": "reporter",
+    "createdAt": "2026-06-08T01:21:03.468Z"
+  },
+  {
+    "id": "foreman-001",
+    "name": "王班长",
+    "role": "foreman",
+    "createdAt": "2026-06-08T01:21:03.468Z"
+  },
+  {
+    "id": "security-001",
+    "name": "赵安保",
+    "role": "security",
+    "createdAt": "2026-06-08T01:21:03.468Z"
+  },
+  {
+    "id": "admin-001",
+    "name": "孙管理",
+    "role": "admin",
+    "createdAt": "2026-06-08T01:21:03.468Z"
+  }
+]
