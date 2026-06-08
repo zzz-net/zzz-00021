@@ -34,13 +34,16 @@ app.listen(PORT, () => {
   console.log(`API 前缀: http://localhost:${PORT}/api`);
   console.log(`健康检查: http://localhost:${PORT}/api/health`);
   console.log('');
+  console.log('存储: SQLite (data/duty-incidents.db)');
+  console.log('');
   console.log('初始化用户 (X-User-Id header):');
   console.log('  reporter-001  - 普通上报人 (reporter)');
   console.log('  foreman-001   - 班长 (foreman)');
   console.log('  security-001  - 安保人员 (security)');
   console.log('  admin-001     - 管理员 (admin)');
   console.log('');
-  console.log('运行 npm run init 初始化示例数据');
+  console.log('运行 npm run init 初始化用户数据');
+  console.log('运行 npm run seed 生成示例事故/证据数据');
   console.log('========================================');
 });
 

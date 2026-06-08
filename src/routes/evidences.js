@@ -30,6 +30,7 @@ router.post('/', requirePermission('ADD_EVIDENCE'), (req, res) => {
     if (result.error === ERROR_CODES.NOT_FOUND) statusCode = 404;
     if (result.error === ERROR_CODES.EVIDENCE_TIME_TOO_EARLY) statusCode = 400;
     if (result.error === ERROR_CODES.DUPLICATE_EVIDENCE_HASH) statusCode = 409;
+    if (result.error === ERROR_CODES.INCIDENT_CLOSED) statusCode = 400;
     return res.status(statusCode).json(createErrorResponse(result.error, result.details));
   }
 

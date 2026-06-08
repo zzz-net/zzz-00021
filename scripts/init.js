@@ -1,8 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const { getDb } = require('../src/storage/sqliteStore');
 const { USER_ROLE } = require('../src/constants/status');
-
-const DATA_DIR = path.join(__dirname, '..', 'data');
 
 const defaultUsers = [
   {
@@ -37,49 +34,29 @@ const defaultUsers = [
   }
 ];
 
-function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-}
-
-function writeJsonFile(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
 function initData() {
-  console.log('初始化数据...');
-  ensureDir(DATA_DIR);
+  console.log('初始化数据 (SQLite)...');
+  const db = getDb();
 
-  const usersFile = path.join(DATA_DIR, 'users.json');
-  if (!fs.existsSync(usersFile)) {
-    writeJsonFile(usersFile, defaultUsers);
+  const existingCount = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
+  if (existingCount === 0) {
+    const insertStmt = db.prepare(
+      'INSERT INTO users (id, name, role, createdAt) VALUES (@id, @name, @role, @createdAt)'
+    );
+    const tx = db.transaction((users) => {
+      for (const u of users) insertStmt.run(u);
+    });
+    tx(defaultUsers);
     console.log('✓ 用户数据已创建');
   } else {
     console.log('- 用户数据已存在，跳过');
   }
 
-  const incidentsFile = path.join(DATA_DIR, 'incidents.json');
-  if (!fs.existsSync(incidentsFile)) {
-    writeJsonFile(incidentsFile, []);
-    console.log('✓ 事故数据已初始化');
-  }
-
-  const evidencesFile = path.join(DATA_DIR, 'evidences.json');
-  if (!fs.existsSync(evidencesFile)) {
-    writeJsonFile(evidencesFile, []);
-    console.log('✓ 证据数据已初始化');
-  }
-
-  const auditLogsFile = path.join(DATA_DIR, 'audit_logs.json');
-  if (!fs.existsSync(auditLogsFile)) {
-    writeJsonFile(auditLogsFile, []);
-    console.log('✓ 审计日志已初始化');
-  }
-
   console.log('');
-  console.log('初始化完成！可用用户列表：');
-  defaultUsers.forEach(u => {
+  console.log('初始化完成！数据库文件: data/duty-incidents.db');
+  console.log('可用用户列表：');
+  const users = db.prepare('SELECT id, name, role FROM users ORDER BY id').all();
+  users.forEach(u => {
     console.log(`  ${u.id} - ${u.name} (${u.role})`);
   });
   console.log('');

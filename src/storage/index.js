@@ -1,9 +1,9 @@
-const { JsonStore, AuditLogStore } = require('./jsonStore');
+const { SqliteStore, AuditLogSqliteStore } = require('./sqliteStore');
 
-const incidentsStore = new JsonStore('incidents');
-const evidencesStore = new JsonStore('evidences');
-const usersStore = new JsonStore('users');
-const auditLogsStore = new AuditLogStore();
+const incidentsStore = new SqliteStore('incidents');
+const evidencesStore = new SqliteStore('evidences');
+const usersStore = new SqliteStore('users');
+const auditLogsStore = new AuditLogSqliteStore();
 
 module.exports = {
   incidentsStore,

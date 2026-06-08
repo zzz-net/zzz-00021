@@ -139,4 +139,22 @@ router.post('/:id/start-evidence', requirePermission('ADD_EVIDENCE'), (req, res)
   });
 });
 
+router.post('/:id/reopen', requirePermission('REOPEN_INCIDENT'), (req, res) => {
+  const { reason } = req.body;
+  if (!reason) {
+    return res.status(400).json(createErrorResponse(ERROR_CODES.VALIDATION_ERROR, ['重新打开原因 reason 是必填项']));
+  }
+
+  const result = incidentService.reopenIncident(req.user, req.params.id, reason);
+  if (!result.success) {
+    const statusCode = result.error === ERROR_CODES.NOT_FOUND ? 404 : 400;
+    return res.status(statusCode).json(createErrorResponse(result.error, result.details));
+  }
+
+  res.json({
+    success: true,
+    data: result.data
+  });
+});
+
 module.exports = router;

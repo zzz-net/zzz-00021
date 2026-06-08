@@ -131,6 +131,10 @@ function startEvidenceCollection(user, incidentId) {
   return transitionStatus(user, incidentId, INCIDENT_STATUS.EVIDENCE_COLLECTING);
 }
 
+function reopenIncident(user, incidentId, reason) {
+  return transitionStatus(user, incidentId, INCIDENT_STATUS.EVIDENCE_COLLECTING, reason);
+}
+
 module.exports = {
   createIncident,
   getIncidentList,
@@ -140,5 +144,6 @@ module.exports = {
   closeIncident,
   returnIncident,
   startEvidenceCollection,
+  reopenIncident,
   canTransitionStatus
 };

@@ -1,12 +1,24 @@
 const { v4: uuidv4 } = require('uuid');
 const { incidentsStore, evidencesStore } = require('../storage');
 const { ERROR_CODES } = require('../constants/errors');
+const { INCIDENT_STATUS } = require('../constants/status');
 const { logAction, AUDIT_ACTION } = require('./auditService');
 
 function addEvidence(user, incidentId, data) {
   const incident = incidentsStore.findById(incidentId);
   if (!incident) {
     return { success: false, error: ERROR_CODES.NOT_FOUND };
+  }
+
+  if (incident.status === INCIDENT_STATUS.CLOSED) {
+    return {
+      success: false,
+      error: ERROR_CODES.INCIDENT_CLOSED,
+      details: {
+        incidentId,
+        currentStatus: incident.status
+      }
+    };
   }
 
   const collectedAt = data.collectedAt || new Date().toISOString();
@@ -41,6 +53,7 @@ function addEvidence(user, incidentId, data) {
   const evidence = {
     id: uuidv4(),
     incidentId,
+    sequence: existingEvidences.length + 1,
     type: data.type || 'other',
     description: data.description,
     collectedAt,
@@ -71,7 +84,7 @@ function addEvidence(user, incidentId, data) {
 
 function getEvidencesByIncident(incidentId) {
   const evidences = evidencesStore.findMany(e => e.incidentId === incidentId);
-  return evidences.sort((a, b) => new Date(a.collectedAt) - new Date(b.collectedAt));
+  return evidences.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 }
 
 function getEvidenceById(id) {
