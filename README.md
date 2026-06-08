@@ -45,16 +45,18 @@ npm start
 ```
 reported (已上报)
     ↓
-evidence_collecting (证据收集中)
-    ↓
-foreman_reviewed (班长已复核)
-    ↓
-security_confirmed (安保已确认)
-    ↓
-closed (已结案)
+evidence_collecting (证据收集中) ←─────────────────┐
+    ↓                                                │
+foreman_reviewed (班长已复核)                        │
+    ↓                                                │ reopen
+security_confirmed (安保已确认)                      │ (security/admin)
+    ↓                                                │
+closed (已结案) ─────────────────────────────────────┘
 
 任何状态均可 → returned (已退回) → evidence_collecting
 ```
+
+> **重要**：`closed（已结案）` 状态下，所有状态流转接口（`start-evidence` / `return` / `foreman-review` / `security-confirm` / `close`）以及证据登记接口，**全部**返回 `INCIDENT_CLOSED` 错误，状态不会改变、不会写入证据、不会写成功审计日志。唯一合法入口是 `POST /incidents/:id/reopen`（security 或 admin 角色），将事故流转回 `evidence_collecting` 后才能继续登记证据。
 
 ## 错误响应格式
 
@@ -328,7 +330,93 @@ curl -H "X-User-Id: admin-001" \
   "http://localhost:3000/api/export/audit-logs?action=incident_status_changed&userId=foreman-001&format=json"
 ```
 
-> 权限要求：`admin` 或 `security` 角色
+#### 导出事故完整归档包（推荐）
+
+一次性导出某个事故的全部信息：事故详情、证据列表、相关审计日志、以及一份 manifest 文件，支持 JSON / CSV 两种内部数据格式。
+
+归档包内容结构：
+```
+{
+  manifest: {
+    schemaVersion, exportedAt, exportId, dataFormat,
+    incidentId, incidentTitle, filters,
+    counts: { incidents, evidences, auditLogs },
+    files: [...]
+  },
+  files: {
+    'manifest.json': '...',
+    'incident.json' | 'incident.csv': '...',
+    'evidences.json' | 'evidences.csv': '...',
+    'audit_logs.json' | 'audit_logs.csv': '...'
+  }
+}
+```
+
+**方式一：保存到服务端导出目录（默认）**
+
+```bash
+# JSON 格式内部文件
+curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  "http://localhost:3000/api/export/incident-archive/<事故ID>"
+
+# CSV 格式内部文件
+curl -X POST -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  -d '{"format":"csv"}' \
+  "http://localhost:3000/api/export/incident-archive/<事故ID>"
+```
+
+成功响应：
+```json
+{
+  "success": true,
+  "data": {
+    "manifest": { ... },
+    "savedPath": "D:\\...\\data\\exports\\duty-export-2026-06-08-incident-xxx-json.json",
+    "finalName": "duty-export-2026-06-08-incident-xxx-json.json",
+    "renamed": false,
+    "files": ["manifest.json", "incident.json", "evidences.json", "audit_logs.json"]
+  }
+}
+```
+
+**方式二：直接下载（不写入磁盘）**
+
+```bash
+curl -H "X-User-Id: admin-001" \
+  "http://localhost:3000/api/export/incident-archive/<事故ID>?download=true&format=csv" \
+  -o incident-archive.json
+```
+
+#### 导出配置管理（持久化，重启生效）
+
+```bash
+# 查看当前配置
+curl -H "X-User-Id: admin-001" "http://localhost:3000/api/export/config"
+
+# 修改配置（可部分更新）
+curl -X PUT -H "Content-Type: application/json" -H "X-User-Id: admin-001" \
+  -d '{
+    "exportDir": "D:/duty-exports",
+    "filenamePrefix": "company-duty",
+    "conflictStrategy": "error"
+  }' \
+  "http://localhost:3000/api/export/config"
+```
+
+配置项说明：
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| exportDir | string | data/exports | 导出文件保存目录（自动创建，绝对/相对路径均可） |
+| filenamePrefix | string | duty-export | 导出文件名前缀 |
+| conflictStrategy | string | suffix | 同名冲突处理策略：`suffix` 自动追加数字后缀，`error` 返回 409 冲突错误，不静默覆盖 |
+
+#### 查看已保存的归档列表
+
+```bash
+curl -H "X-User-Id: admin-001" "http://localhost:3000/api/export/saved"
+```
+
+> 权限要求：`admin` 或 `security` 角色。普通上报人（reporter）和班长（foreman）无法访问导出接口，且会写入失败审计日志。
 
 ---
 

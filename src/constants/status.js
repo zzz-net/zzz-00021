@@ -44,7 +44,9 @@ const AUDIT_ACTION = {
   INCIDENT_CREATED: 'incident_created',
   INCIDENT_STATUS_CHANGED: 'incident_status_changed',
   EVIDENCE_ADDED: 'evidence_added',
-  DATA_EXPORTED: 'data_exported'
+  DATA_EXPORTED: 'data_exported',
+  DATA_EXPORT_FAILED: 'data_export_failed',
+  EXPORT_CONFIG_UPDATED: 'export_config_updated'
 };
 
 module.exports = {

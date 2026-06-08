@@ -88,6 +88,12 @@ function initTables(db) {
     CREATE INDEX IF NOT EXISTS idx_audit_incidentId ON audit_logs(incidentId);
     CREATE INDEX IF NOT EXISTS idx_audit_userId ON audit_logs(userId);
     CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
+
+    CREATE TABLE IF NOT EXISTS app_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
   `);
 }
 
