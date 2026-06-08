@@ -1014,6 +1014,668 @@ node scripts/verify-incident-list.js
 | 2 | 脚本执行异常（服务启动失败、未捕获异常等） |
 | 130 | 用户 Ctrl+C 中断 |
 
+---
+
+## 交接班模块（Shift Handover）
+
+支持值班人员之间创建交接班记录、指定接班人、关联事故、确认接班、撤回交接班的完整流程。所有状态变更均写入审计日志，数据持久化到 SQLite，服务重启后完整保留。
+
+### 交接班状态流转
+
+```
+                    交班人撤回（仅本人）
+              ┌───────────────────────────┐
+              │                           ▼
+         pending (待确认) ──────► revoked (已撤回)
+              │
+              │ 指定接班人确认
+              ▼
+         confirmed (已确认)
+```
+
+**状态约束**：
+- `pending` → `confirmed`：仅 `takeoverUserId` 指定的接班人可以操作
+- `pending` → `revoked`：仅 `handoverUserId` 交班人本人可以操作
+- `confirmed`：终态，不可撤回、不可重复确认
+- `revoked`：终态，不可确认、不可重复撤回
+
+### 交接班权限矩阵
+
+| 权限项 | 允许角色 | 说明 |
+|--------|----------|------|
+| `CREATE_SHIFT_HANDOVER` | foreman / security / admin | 创建交接班记录 |
+| `VIEW_SHIFT_HANDOVER` | reporter / foreman / security / admin | 查看交接班列表和详情 |
+| `CONFIRM_SHIFT_HANDOVER` | foreman / security / admin | 确认接班（受业务约束：仅指定接班人可确认） |
+| `REVOKE_SHIFT_HANDOVER` | foreman / security / admin | 撤回交接班（受业务约束：仅交班人本人可撤回） |
+
+> reporter 角色虽然拥有 `VIEW_SHIFT_HANDOVER` 权限，但创建、确认、撤回均无权限。
+
+### 交接班实体字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | UUID 主键 |
+| `handoverUserId` | string | 交班人用户 ID |
+| `handoverUserName` | string | 交班人姓名（冗余，便于展示） |
+| `takeoverUserId` | string | 接班人用户 ID |
+| `takeoverUserName` | string | 接班人姓名（冗余） |
+| `shiftStart` | string | 班次开始时间（ISO 8601） |
+| `shiftEnd` | string | 班次结束时间（ISO 8601） |
+| `incidentIds` | string[] | 关联事故 ID 数组 |
+| `remark` | string | 交接备注 |
+| `status` | string | `pending` / `confirmed` / `revoked` |
+| `confirmedAt` | string \| null | 确认时间（ISO 8601），仅 confirmed 时有值 |
+| `confirmedByUserId` | string \| null | 确认人 ID |
+| `confirmedByUserName` | string \| null | 确认人姓名 |
+| `revokedAt` | string \| null | 撤回时间（ISO 8601），仅 revoked 时有值 |
+| `revokedByUserId` | string \| null | 撤回人 ID |
+| `revokedByUserName` | string \| null | 撤回人姓名 |
+| `revokeReason` | string \| null | 撤回原因 |
+| `createdAt` | string | 创建时间（ISO 8601） |
+| `updatedAt` | string | 更新时间（ISO 8601） |
+| `incidents` | object[] | （仅详情接口返回）关联事故详情列表，含 `id`、`title`、`status`、`level`、`location`、`evidenceCount` |
+
+---
+
+### 交接班 API 接口
+
+所有接口需在 Header 中携带 `X-User-Id: <用户ID>` 进行身份认证。
+
+---
+
+#### 1. 创建交接班
+
+```bash
+curl -X POST http://localhost:3000/api/shift-handovers \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: foreman-001" \
+  -d '{
+    "takeoverUserId": "security-001",
+    "shiftStart": "2026-06-08T08:00:00.000Z",
+    "shiftEnd": "2026-06-08T20:00:00.000Z",
+    "incidentIds": ["<事故ID1>", "<事故ID2>"],
+    "remark": "白班交接，注意A区仓库漏水事故需补充维修记录"
+  }'
+```
+
+**请求头**：
+| Header | 必填 | 说明 |
+|--------|------|------|
+| `Content-Type` | ✅ | 必须为 `application/json` |
+| `X-User-Id` | ✅ | 用户 ID，角色需在 `foreman` / `security` / `admin` 中 |
+
+**请求体字段**：
+| 字段 | 必填 | 类型 | 说明 |
+|------|------|------|------|
+| `takeoverUserId` | ✅ | string | 接班人用户 ID，必须存在于 users 表 |
+| `shiftStart` | ✅ | string | 班次开始时间，有效的 ISO 8601 字符串 |
+| `shiftEnd` | ✅ | string | 班次结束时间，有效的 ISO 8601 字符串 |
+| `incidentIds` | | string[] | 关联事故 ID 数组，每个 ID 必须存在于 incidents 表 |
+| `remark` | | string | 交接备注，默认为空字符串 |
+
+**成功响应（201 Created）**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "d9f2c7a1-4e3b-4c5d-8e6f-1a2b3c4d5e6f",
+    "handoverUserId": "foreman-001",
+    "handoverUserName": "王班长",
+    "takeoverUserId": "security-001",
+    "takeoverUserName": "赵安保",
+    "shiftStart": "2026-06-08T08:00:00.000Z",
+    "shiftEnd": "2026-06-08T20:00:00.000Z",
+    "incidentIds": ["498f3b57-6e7e-4f01-ac10-9851fee60a31"],
+    "remark": "白班交接，注意A区仓库漏水事故需补充维修记录",
+    "status": "pending",
+    "confirmedAt": null,
+    "confirmedByUserId": null,
+    "confirmedByUserName": null,
+    "revokedAt": null,
+    "revokedByUserId": null,
+    "revokedByUserName": null,
+    "revokeReason": null,
+    "createdAt": "2026-06-08T09:00:00.000Z",
+    "updatedAt": "2026-06-08T09:00:00.000Z"
+  }
+}
+```
+
+**典型失败响应**：
+
+**（1）无权限 — reporter 角色尝试创建（403）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "权限不足，无法执行该操作",
+    "details": {
+      "required": "CREATE_SHIFT_HANDOVER",
+      "userRole": "reporter",
+      "allowedRoles": ["foreman", "security", "admin"]
+    }
+  }
+}
+```
+→ 同时写入 `shift_handover_create_failed` 审计日志，附带 `type: "permission_denied"`、`path`、`method`、用户角色等信息。
+
+**（2）参数验证失败 — 缺少 takeoverUserId（400）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "请求参数验证失败",
+    "details": ["takeoverUserId 是必填项", "shiftStart 必须是有效的 ISO 8601 日期字符串"]
+  }
+}
+```
+
+**（3）接班人不存在（400）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "请求参数验证失败",
+    "details": "接班人不存在"
+  }
+}
+```
+
+**（4）关联事故不存在（400）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_INVALID_INCIDENT",
+    "message": "关联的事故不存在",
+    "details": {
+      "incidentId": "non-existent-incident-id-12345"
+    }
+  }
+}
+```
+
+---
+
+#### 2. 交接班列表查询
+
+```bash
+# 全部交接班
+curl -H "X-User-Id: admin-001" http://localhost:3000/api/shift-handovers
+
+# 按状态筛选
+curl -H "X-User-Id: admin-001" "http://localhost:3000/api/shift-handovers?status=pending"
+
+# 按交班人筛选
+curl -H "X-User-Id: admin-001" "http://localhost:3000/api/shift-handovers?handoverUserId=foreman-001"
+
+# 按接班人筛选
+curl -H "X-User-Id: admin-001" "http://localhost:3000/api/shift-handovers?takeoverUserId=security-001"
+```
+
+**查询参数**：
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `status` | string | 按状态精确匹配：`pending` / `confirmed` / `revoked` |
+| `handoverUserId` | string | 按交班人 ID 精确匹配 |
+| `takeoverUserId` | string | 按接班人 ID 精确匹配 |
+
+列表按 `createdAt` 降序排列（最新在前）。
+
+---
+
+#### 3. 交接班详情（含关联事故信息）
+
+```bash
+curl -H "X-User-Id: foreman-001" http://localhost:3000/api/shift-handovers/<交接班ID>
+```
+
+**请求头**：`X-User-Id` 角色需在 `reporter` / `foreman` / `security` / `admin` 中。
+
+**成功响应（200 OK）**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "d9f2c7a1-4e3b-4c5d-8e6f-1a2b3c4d5e6f",
+    "handoverUserId": "foreman-001",
+    "handoverUserName": "王班长",
+    "takeoverUserId": "security-001",
+    "takeoverUserName": "赵安保",
+    "shiftStart": "2026-06-08T08:00:00.000Z",
+    "shiftEnd": "2026-06-08T20:00:00.000Z",
+    "incidentIds": ["498f3b57-6e7e-4f01-ac10-9851fee60a31"],
+    "remark": "白班交接，注意A区仓库漏水事故需补充维修记录",
+    "status": "pending",
+    "confirmedAt": null,
+    "confirmedByUserId": null,
+    "confirmedByUserName": null,
+    "revokedAt": null,
+    "revokedByUserId": null,
+    "revokedByUserName": null,
+    "revokeReason": null,
+    "createdAt": "2026-06-08T09:00:00.000Z",
+    "updatedAt": "2026-06-08T09:00:00.000Z",
+    "incidents": [
+      {
+        "id": "498f3b57-6e7e-4f01-ac10-9851fee60a31",
+        "title": "A区仓库漏水",
+        "status": "evidence_collecting",
+        "level": "medium",
+        "location": "A区3号仓库",
+        "evidenceCount": 2
+      }
+    ]
+  }
+}
+```
+
+**典型失败响应 — 交接班不存在（404）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_NOT_FOUND",
+    "message": "交接班不存在"
+  }
+}
+```
+
+> 读取详情会写入 `shift_handover_viewed` 审计日志。
+
+---
+
+#### 4. 确认接班
+
+```bash
+curl -X POST http://localhost:3000/api/shift-handovers/<交接班ID>/confirm \
+  -H "X-User-Id: security-001"
+```
+
+**请求头**：`X-User-Id` 角色需在 `foreman` / `security` / `admin` 中，且必须等于该交接班记录的 `takeoverUserId`（仅指定接班人可确认）。
+
+**成功响应（200 OK）**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "d9f2c7a1-4e3b-4c5d-8e6f-1a2b3c4d5e6f",
+    "status": "confirmed",
+    "confirmedAt": "2026-06-08T20:05:00.000Z",
+    "confirmedByUserId": "security-001",
+    "confirmedByUserName": "赵安保",
+    "updatedAt": "2026-06-08T20:05:00.000Z",
+    "...": "其他字段同创建响应"
+  }
+}
+```
+
+**典型失败响应**：
+
+**（1）无权限 — reporter 角色尝试确认（403）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "权限不足，无法执行该操作",
+    "details": {
+      "required": "CONFIRM_SHIFT_HANDOVER",
+      "userRole": "reporter",
+      "allowedRoles": ["foreman", "security", "admin"]
+    }
+  }
+}
+```
+
+**（2）非指定接班人 — foreman 尝试确认发给 security 的交接班（409）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_CONFLICT",
+    "message": "交接班状态冲突",
+    "details": {
+      "currentStatus": "pending",
+      "expectedTakeoverUserId": "security-001",
+      "actualUserId": "foreman-001",
+      "hint": "仅指定的接班人可以确认此交接班"
+    }
+  }
+}
+```
+
+**（3）重复确认 — 已 confirmed 的交接班再次确认（409）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_ALREADY_CONFIRMED",
+    "message": "交接班已被确认，无法执行该操作",
+    "details": {
+      "currentStatus": "confirmed",
+      "hint": "该交接班已完成确认，不可重复确认"
+    }
+  }
+}
+```
+
+**（4）已撤回的交接班尝试确认（409）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_ALREADY_REVOKED",
+    "message": "交接班已被撤回，无法执行该操作",
+    "details": {
+      "currentStatus": "revoked",
+      "hint": "该交接班已被撤回，无法确认"
+    }
+  }
+}
+```
+
+**（5）交接班不存在（404）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_NOT_FOUND",
+    "message": "交接班不存在"
+  }
+}
+```
+
+---
+
+#### 5. 撤回交接班
+
+```bash
+curl -X POST http://localhost:3000/api/shift-handovers/<交接班ID>/revoke \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: foreman-001" \
+  -d '{
+    "reason": "事故已处理完毕，无需交接"
+  }'
+```
+
+**请求头**：`X-User-Id` 角色需在 `foreman` / `security` / `admin` 中，且必须等于该交接班记录的 `handoverUserId`（仅交班人本人可撤回）。
+
+**请求体**：
+| 字段 | 必填 | 类型 | 说明 |
+|------|------|------|------|
+| `reason` | | string | 撤回原因 |
+
+**成功响应（200 OK）**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "d9f2c7a1-4e3b-4c5d-8e6f-1a2b3c4d5e6f",
+    "status": "revoked",
+    "revokedAt": "2026-06-08T10:00:00.000Z",
+    "revokedByUserId": "foreman-001",
+    "revokedByUserName": "王班长",
+    "revokeReason": "事故已处理完毕，无需交接",
+    "updatedAt": "2026-06-08T10:00:00.000Z",
+    "...": "其他字段同创建响应"
+  }
+}
+```
+
+**典型失败响应**：
+
+**（1）无权限 — reporter 角色尝试撤回（403）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "权限不足，无法执行该操作",
+    "details": {
+      "required": "REVOKE_SHIFT_HANDOVER",
+      "userRole": "reporter",
+      "allowedRoles": ["foreman", "security", "admin"]
+    }
+  }
+}
+```
+
+**（2）非交班人本人 — security 尝试撤回 admin 创建的交接班（409）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_NOT_CREATOR",
+    "message": "仅交班人可撤回交接班",
+    "details": {
+      "currentStatus": "pending",
+      "handoverUserId": "admin-001",
+      "operatorUserId": "security-001",
+      "hint": "仅交班人本人可以撤回交接班"
+    }
+  }
+}
+```
+
+**（3）已确认的交接班尝试撤回（409）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_ALREADY_CONFIRMED",
+    "message": "交接班已被确认，无法执行该操作",
+    "details": {
+      "currentStatus": "confirmed",
+      "hint": "该交接班已被确认，无法撤回"
+    }
+  }
+}
+```
+
+**（4）重复撤回（409）**：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SHIFT_HANDOVER_ALREADY_REVOKED",
+    "message": "交接班已被撤回，无法执行该操作",
+    "details": {
+      "currentStatus": "revoked",
+      "hint": "该交接班已被撤回，不可重复撤回"
+    }
+  }
+}
+```
+
+---
+
+### SQLite 持久化口径
+
+交接班数据存储在 SQLite 数据库 `data/duty-incidents.db` 的 `shift_handovers` 表中：
+
+**表结构**（见 [sqliteStore.js](file:///d:/workSpace/AI__SPACE/zzz-00021/src/storage/sqliteStore.js#L144-L169)）：
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| `id` | TEXT PRIMARY KEY | UUID |
+| `handoverUserId` | TEXT NOT NULL | 交班人 ID |
+| `handoverUserName` | TEXT NOT NULL | 交班人姓名 |
+| `takeoverUserId` | TEXT NOT NULL | 接班人 ID |
+| `takeoverUserName` | TEXT NOT NULL | 接班人姓名 |
+| `shiftStart` | TEXT NOT NULL | 班次开始时间（ISO 8601 字符串） |
+| `shiftEnd` | TEXT NOT NULL | 班次结束时间（ISO 8601 字符串） |
+| `incidentIds` | TEXT NOT NULL | 关联事故 ID 数组的 JSON 序列化字符串（读写时自动 JSON.parse/JSON.stringify） |
+| `remark` | TEXT | 备注 |
+| `status` | TEXT NOT NULL | `pending` / `confirmed` / `revoked` |
+| `confirmedAt` | TEXT | 确认时间 |
+| `confirmedByUserId` | TEXT | 确认人 ID |
+| `confirmedByUserName` | TEXT | 确认人姓名 |
+| `revokedAt` | TEXT | 撤回时间 |
+| `revokedByUserId` | TEXT | 撤回人 ID |
+| `revokedByUserName` | TEXT | 撤回人姓名 |
+| `revokeReason` | TEXT | 撤回原因 |
+| `createdAt` | TEXT NOT NULL | 创建时间 |
+| `updatedAt` | TEXT NOT NULL | 更新时间 |
+
+**索引**：
+- `idx_shift_handovers_status` — 按状态筛选
+- `idx_shift_handovers_handoverUserId` — 按交班人筛选
+- `idx_shift_handovers_takeoverUserId` — 按接班人筛选
+- `idx_shift_handovers_createdAt` — 按创建时间排序
+
+**持久化保证**：使用 better-sqlite3 的 WAL 模式（`journal_mode = WAL`），所有写入操作同步落盘。服务停止后重启，所有交接班记录（含 `pending`、`confirmed`、`revoked` 三种状态）、关联事故 ID 数组、确认/撤回时间戳与操作人信息均可完整读回。
+
+---
+
+### 关联事故读取口径
+
+交接班详情接口（`GET /api/shift-handovers/:id`）返回的 `incidents` 字段是通过 `incidentIds` 数组逐个从 `incidents` 表实时关联查询得到的（见 [shiftHandoverService.js](file:///d:/workSpace/AI__SPACE/zzz-00021/src/services/shiftHandoverService.js#L111-L124)）：
+
+1. 遍历 `handover.incidentIds`
+2. 对每个 ID 调用 `incidentsStore.findById(id)`
+3. 过滤掉查询结果为 null 的记录（事故被删除的情况）
+4. 每条事故仅投影以下字段：`id`、`title`、`status`、`level`、`location`、`evidenceCount`
+
+这意味着 `incidents` 反映的是**查询时刻**事故的最新状态，而非创建交接班时的快照。如果事故在交接班创建后发生了状态变更或证据增减，详情接口会返回最新值。
+
+---
+
+### 审计日志
+
+所有交接班相关操作均写入 `audit_logs` 表，每条日志包含 `from` / `to` 状态（在 `details` 字段中，同时冗余映射到 `previousStatus` / `currentStatus` 列）。
+
+**审计 action 清单**：
+
+| action | 触发场景 | details 关键字段 |
+|--------|----------|------------------|
+| `shift_handover_created` | 创建交接班成功 | `handoverId`、`from: null`、`to: "pending"`、`takeoverUserId`、`shiftStart`、`shiftEnd`、`incidentCount` |
+| `shift_handover_create_failed` | 创建交接班失败（权限不足、参数错误、接班人不存在、事故不存在、DB 写入失败等） | 可能包含 `type: "permission_denied"`、`reason`、`errors`、`path`、`method`、`userRole`、`requiredPermission` |
+| `shift_handover_viewed` | 读取交接班详情 | `handoverId` |
+| `shift_handover_confirmed` | 确认接班成功 | `handoverId`、`from: "pending"`、`to: "confirmed"` |
+| `shift_handover_confirm_failed` | 确认失败（不存在、已确认、已撤回、非接班人） | `reason`（`not_found` / `already_confirmed` / `already_revoked` / `not_takeover_user`）、`handoverId`、`expectedTakeoverUserId` |
+| `shift_handover_revoked` | 撤回成功 | `handoverId`、`from: "pending"`、`to: "revoked"`、`reason`（撤回原因，可为 null） |
+| `shift_handover_revoke_failed` | 撤回失败（不存在、已确认、已撤回、非交班人） | `reason`（`not_found` / `already_confirmed` / `already_revoked` / `not_creator`）、`handoverId`、`expectedCreatorId` |
+
+**状态流转 before/after 对照**：
+
+| 操作 | from (previousStatus) | to (currentStatus) |
+|------|----------------------|--------------------|
+| 创建 | `null` | `pending` |
+| 确认接班 | `pending` | `confirmed` |
+| 撤回 | `pending` | `revoked` |
+
+审计日志存储与读取细节见 [auditService.js](file:///d:/workSpace/AI__SPACE/zzz-00021/src/services/auditService.js) 和 [sqliteStore.js](file:///d:/workSpace/AI__SPACE/zzz-00021/src/storage/sqliteStore.js#L303-L321) 的 `AuditLogSqliteStore`，日志自带自增 `sequence` 序号保证时序稳定。
+
+---
+
+### 交接班验证脚本
+
+在 `scripts/verify-shift-handover.js` 提供了交接班模块的完整可复现验证脚本，覆盖以下场景：
+
+1. **无权限测试（reporter 角色）**：
+   - reporter 创建交接班 → 403 `PERMISSION_DENIED`，写入失败审计日志
+   - reporter 确认接班 → 403 `PERMISSION_DENIED`
+   - reporter 撤回交接 → 403 `PERMISSION_DENIED`
+
+2. **非指定接班人确认**：foreman 尝试确认发给 security 的交接班 → 409 `SHIFT_HANDOVER_CONFLICT`，响应中含 `hint` 和 `expectedTakeoverUserId`
+
+3. **重复确认冲突**：
+   - 接班人确认 pending 交接班 → 200 成功，状态变为 `confirmed`
+   - 对同一条记录再次确认 → 409 `SHIFT_HANDOVER_ALREADY_CONFIRMED`，`details.currentStatus === "confirmed"`
+
+4. **撤回限制**：
+   - 非交班人（security）尝试撤回 admin 创建的交接班 → 409 `SHIFT_HANDOVER_NOT_CREATOR`
+   - 交班人本人撤回 pending 交接班 → 200 成功，状态变为 `revoked`，`revokeReason` 被记录
+   - 重复撤回 → 409 `SHIFT_HANDOVER_ALREADY_REVOKED`
+   - 对已 confirmed 的交接班尝试撤回 → 409 `SHIFT_HANDOVER_ALREADY_CONFIRMED`
+   - 对已 revoked 的交接班尝试确认 → 409 `SHIFT_HANDOVER_ALREADY_REVOKED`
+
+5. **跨重启持久化**：
+   - 创建 pending / confirmed / revoked 三种状态的交接班记录
+   - 停止服务 → 等待 1.5s → 重新启动服务
+   - 逐条读回详情并断言：状态、交班人、接班人、班次时间、关联事故 ID、备注、确认/撤回时间戳与原因全部完整保留
+
+6. **审计日志落库**：
+   - 验证存在 `shift_handover_created`、`shift_handover_confirmed`、`shift_handover_revoked` 成功日志
+   - 验证存在 `shift_handover_create_failed`、`shift_handover_confirm_failed`、`shift_handover_revoke_failed` 失败日志
+   - 逐条断言日志的 `userId`、`from`/`to` 状态、`handoverId` 与实际操作一致
+
+**运行方式**：
+```bash
+# 方法一：直接运行脚本
+# 重要：运行前请先停止所有占用 3000 端口的进程（如手动启动的 npm start）
+# 脚本会自己以子进程方式启动和停止服务，完成跨重启验证
+node scripts/verify-shift-handover.js
+
+# 方法二：通过 npm script（推荐，见 package.json）
+npm run verify:shift-handover
+```
+
+**预期输出示例**：
+```
+========================================
+  值班交接班模块验证脚本
+========================================
+
+  启动服务...
+  ✓ 服务已启动
+
+=== 阶段 1: 健康检查和初始化 ===
+  ✓ 健康检查返回 200
+
+=== 阶段 2: 无权限测试 (reporter 角色) ===
+  ✓ reporter 创建交接班返回 403
+  ✓ reporter 创建交接班错误码 PERMISSION_DENIED
+  ✓ foreman 先创建事故用于测试
+  ✓ security 再创建事故用于测试
+  ✓ foreman 创建交接班返回 201
+  ✓ 交接班创建成功返回 data.id 存在
+  ✓ 交接班初始状态为 pending
+  ✓ 交接班交班人为 foreman
+  ✓ 交接班接班人为 security
+  ✓ 交接班关联事故 ID 数组长度 2 个
+  ✓ reporter 确认接班返回 403
+  ✓ reporter 确认接班错误码 PERMISSION_DENIED
+  ✓ reporter 撤回交接返回 403
+  ✓ reporter 撤回交接错误码 PERMISSION_DENIED
+
+...（中间阶段省略）...
+
+=== 阶段 8: 审计日志落库验证 ===
+  ✓ 存在 shift_handover_created 审计日志
+  ✓ created 日志 userId 正确
+  ✓ created 日志 to 状态 pending
+  ✓ created 日志 details.handoverId 存在
+  ✓ 存在 shift_handover_confirmed 审计日志
+  ✓ confirmed 日志 userId 为 security
+  ✓ confirmed 日志 from pending
+  ✓ confirmed 日志 to confirmed
+  ✓ 存在 shift_handover_revoked 审计日志
+  ✓ revoked 日志 from pending
+  ✓ revoked 日志 to revoked
+  ✓ 存在 shift_handover_create_failed 审计日志（reporter 无权限）
+  ✓ 存在 shift_handover_confirm_failed 审计日志
+  ✓ 存在 shift_handover_revoke_failed 审计日志
+
+========================================
+  总计: 通过 50+ / 50+
+========================================
+```
+
+**退出码约定**：
+| 退出码 | 含义 |
+|--------|------|
+| 0 | 所有检查通过 |
+| 1 | 存在断言失败（失败详情会逐行打印） |
+| 2 | 脚本执行异常（服务启动失败、未捕获异常等） |
+| 130 | 用户 Ctrl+C 中断 |
+
+---
+
 ## 目录结构
 
 ```
@@ -1023,14 +1685,15 @@ node scripts/verify-incident-list.js
 │   ├── constants/         # 状态、角色、错误码定义
 │   ├── middleware/        # 认证和权限中间件
 │   ├── storage/           # SQLite 存储层（sqliteStore.js）
-│   ├── services/          # 业务逻辑层（含 configService、exportService、importService）
-│   └── routes/            # API 路由
+│   ├── services/          # 业务逻辑层（含 configService、exportService、importService、shiftHandoverService）
+│   └── routes/            # API 路由（含 shiftHandovers.js 交接班路由）
 ├── scripts/
 │   ├── init.js            # 初始化用户数据（SQLite）
 │   ├── seed.js            # 生成示例数据（SQLite）
 │   ├── verify-export.js   # 导出功能可复现验证脚本
 │   ├── verify-import.js   # 导入功能可复现验证脚本
-│   └── verify-incident-list.js  # 事故列表/待办视图验证脚本
+│   ├── verify-incident-list.js  # 事故列表/待办视图验证脚本
+│   └── verify-shift-handover.js # 交接班模块可复现验证脚本
 ├── data/
 │   ├── duty-incidents.db  # SQLite 数据库
 │   └── exports/           # 默认导出归档目录
